@@ -1,0 +1,22 @@
+app:
+  api-key: test-api-key
+  catalog:
+    base-url: http://localhost:${wiremock.server.port:8089}
+    api-key: test-catalog-key
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      catalog:
+        sliding-window-size: 4
+        failure-rate-threshold: 75
+        wait-duration-in-open-state: 1s
+        permitted-number-of-calls-in-half-open-state: 2
+  timelimiter:
+    instances:
+      catalog:
+        timeout-duration: 5s
+
+logging:
+  level:
+    com.dak: DEBUG

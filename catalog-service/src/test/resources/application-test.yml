@@ -1,0 +1,6 @@
+app:
+  api-key: test-api-key
+
+logging:
+  level:
+    com.dak: DEBUG
