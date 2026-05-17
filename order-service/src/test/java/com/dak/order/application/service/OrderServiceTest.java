@@ -10,6 +10,8 @@ import com.dak.order.domain.model.OrderItem;
 import com.dak.order.domain.model.PaymentMethod;
 import com.dak.order.domain.model.PaymentMethodType;
 import com.dak.order.domain.model.Site;
+import com.dak.order.domain.exception.ProductOfferingNotFoundException;
+import com.dak.order.domain.port.outbound.CatalogPort;
 import com.dak.order.domain.port.outbound.OrderRepositoryPort;
 import com.dak.order.domain.exception.InvalidStateTransitionException;
 import com.dak.order.domain.exception.OrderMutationForbiddenException;
@@ -31,6 +33,10 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,6 +45,9 @@ class OrderServiceTest {
 
     @Mock
     private OrderRepositoryPort orderRepositoryPort;
+
+    @Mock
+    private CatalogPort catalogPort;
 
     @InjectMocks
     private OrderService orderService;
@@ -157,6 +166,66 @@ class OrderServiceTest {
 
         assertThatThrownBy(() -> orderService.patchOrder(id, patch))
                 .isInstanceOf(OrderMutationForbiddenException.class);
+    }
+
+    // ── TASK-12: Catalog validation ───────────────────────────────────────────
+
+    @Test
+    void createOrder_callsCatalogValidation_beforeSaving() {
+        CreateOrderCommand command = new CreateOrderCommand(
+                OrderCategory.B2B, "cust-1", "site-1",
+                List.of(new OrderItem("po-1", 2)),
+                PaymentMethodType.INVOICE, null);
+        doNothing().when(catalogPort).validateOfferings(anyList());
+        when(orderRepositoryPort.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        orderService.createOrder(command);
+
+        verify(catalogPort).validateOfferings(List.of("po-1"));
+        verify(orderRepositoryPort).save(any(Order.class));
+    }
+
+    @Test
+    void createOrder_throwsProductOfferingNotFoundException_whenOfferingUnknown() {
+        CreateOrderCommand command = new CreateOrderCommand(
+                OrderCategory.B2B, "cust-1", "site-1",
+                List.of(new OrderItem("po-unknown", 1)),
+                PaymentMethodType.INVOICE, null);
+        doThrow(new ProductOfferingNotFoundException("po-unknown"))
+                .when(catalogPort).validateOfferings(anyList());
+
+        assertThatThrownBy(() -> orderService.createOrder(command))
+                .isInstanceOf(ProductOfferingNotFoundException.class)
+                .hasMessageContaining("po-unknown");
+        verify(orderRepositoryPort, never()).save(any());
+    }
+
+    @Test
+    void patchOrder_callsCatalogValidation_whenOrderItemsInPatch() {
+        UUID id = UUID.randomUUID();
+        Order order = buildOrder(id);
+        List<OrderItem> newItems = List.of(new OrderItem("po-2", 3));
+        PatchOrderCommand patch = new PatchOrderCommand(null, null, null, null, newItems, null);
+        doNothing().when(catalogPort).validateOfferings(anyList());
+        when(orderRepositoryPort.findById(id)).thenReturn(Optional.of(order));
+        when(orderRepositoryPort.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        orderService.patchOrder(id, patch);
+
+        verify(catalogPort).validateOfferings(List.of("po-2"));
+    }
+
+    @Test
+    void patchOrder_skipsCatalogValidation_whenOrderItemsNotInPatch() {
+        UUID id = UUID.randomUUID();
+        Order order = buildOrder(id);
+        PatchOrderCommand patch = new PatchOrderCommand("PREVIEW", null, null, null, null, null);
+        when(orderRepositoryPort.findById(id)).thenReturn(Optional.of(order));
+        when(orderRepositoryPort.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        orderService.patchOrder(id, patch);
+
+        verify(catalogPort, never()).validateOfferings(anyList());
     }
 
     private Order buildOrderInState(UUID id, OrderState state) {
