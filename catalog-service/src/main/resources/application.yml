@@ -26,9 +26,27 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  # TASK-27: explicit drain window — see order-service application.yml for full explanation.
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  # TASK-28: Caffeine-backed cache for product-offering lookups.
+  # Offerings are read-only reference data; caching avoids a DB round-trip on every
+  # order validation call from order-service. TTL of 10 minutes keeps data reasonably
+  # fresh without manual cache invalidation.
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=10m
 
 app:
   api-key: ${APP_API_KEY:internal-catalog-key}
+
+# TASK-26: see order-service application.yml for explanation.
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
 
 management:
   endpoints:

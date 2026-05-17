@@ -29,6 +29,12 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  # TASK-27: explicit drain window so graceful shutdown behaviour is documented and predictable.
+  # Requests in-flight when SIGTERM arrives are allowed up to this duration to complete.
+  # Keep shorter than the load-balancer connection-drain timeout (typically 30 s) so
+  # the LB stops routing before Spring forcibly terminates remaining requests.
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
 
 app:
   api-key: ${APP_API_KEY:dev-api-key}
@@ -51,6 +57,15 @@ resilience4j:
     instances:
       catalog:
         timeout-duration: 2s
+
+# TASK-26: Swagger UI controlled by SWAGGER_ENABLED env var.
+# Default: true (on) — works out of the box for development and testing.
+# Production: set SWAGGER_ENABLED=false to remove the API surface from public view.
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
 
 management:
   endpoints:

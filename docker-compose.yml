@@ -77,6 +77,7 @@ services:
       APP_API_KEY: ${APP_API_KEY:-dev-api-key}
       CATALOG_SERVICE_URL: http://catalog-service:8081
       CATALOG_API_KEY: ${CATALOG_API_KEY:-internal-catalog-key}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
     depends_on:
       order-db:
         condition: service_healthy

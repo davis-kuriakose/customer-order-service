@@ -4,6 +4,7 @@ import com.dak.catalog.domain.exception.ProductOfferingNotFoundException;
 import com.dak.catalog.domain.model.ProductOffering;
 import com.dak.catalog.domain.port.inbound.ProductOfferingUseCase;
 import com.dak.catalog.domain.port.outbound.ProductOfferingRepositoryPort;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,6 +12,8 @@ import java.util.List;
 
 @Service
 public class ProductOfferingService implements ProductOfferingUseCase {
+
+    static final String CACHE_NAME = "product-offerings";
 
     private final ProductOfferingRepositoryPort repository;
 
@@ -20,6 +23,7 @@ public class ProductOfferingService implements ProductOfferingUseCase {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CACHE_NAME, key = "#id")
     public ProductOffering getById(String id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ProductOfferingNotFoundException(id));
