@@ -93,4 +93,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .toList());
         return ResponseEntity.badRequest().body(pd);
     }
+
+    // Safety net for any exception not matched by a more specific handler above.
+    // Logs at ERROR so production support can identify unexpected system faults.
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<ProblemDetail> handleUnexpected(Exception ex) {
+        log.error("Unexpected error — likely a bug or system fault", ex);
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+                "An unexpected error occurred. Contact support if the problem persists.");
+        pd.setTitle("Internal Server Error");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(pd);
+    }
 }

@@ -1,15 +1,19 @@
 package com.dak.order.web.controller;
 
+import com.dak.order.application.service.IdempotencyService;
 import com.dak.order.domain.command.CreateOrderCommand;
 import com.dak.order.domain.command.PatchOrderCommand;
 import com.dak.order.domain.model.Order;
 import com.dak.order.domain.model.OrderCategory;
 import com.dak.order.domain.port.inbound.OrderUseCase;
+import com.dak.order.domain.port.outbound.IdempotencyRepositoryPort.StoredResponse;
 import com.dak.order.web.dto.CreateOrderRequest;
 import com.dak.order.web.dto.OrderResponse;
 import com.dak.order.web.dto.PagedResponse;
 import com.dak.order.web.dto.PatchOrderRequest;
 import com.dak.order.web.mapper.OrderWebMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
@@ -35,8 +39,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Tag(name = "Orders", description = "Customer order lifecycle management")
@@ -45,12 +53,19 @@ import java.util.UUID;
 @Validated
 public class OrderController {
 
+    private static final Logger log = LoggerFactory.getLogger(OrderController.class);
+
     private final OrderUseCase orderUseCase;
     private final OrderWebMapper orderWebMapper;
+    private final IdempotencyService idempotencyService;
+    private final ObjectMapper objectMapper;
 
-    public OrderController(OrderUseCase orderUseCase, OrderWebMapper orderWebMapper) {
+    public OrderController(OrderUseCase orderUseCase, OrderWebMapper orderWebMapper,
+                           IdempotencyService idempotencyService, ObjectMapper objectMapper) {
         this.orderUseCase = orderUseCase;
         this.orderWebMapper = orderWebMapper;
+        this.idempotencyService = idempotencyService;
+        this.objectMapper = objectMapper;
     }
 
     @Operation(
@@ -78,12 +93,42 @@ public class OrderController {
             @Parameter(description = "Client-generated unique key for idempotent retries (UUID recommended)")
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CreateOrderRequest request) {
+
+        String requestHash = idempotencyKey != null ? idempotencyService.computeHash(request) : null;
+
+        if (idempotencyKey != null) {
+            Optional<StoredResponse> replay = idempotencyService.check(idempotencyKey, requestHash);
+            if (replay.isPresent()) {
+                return buildReplayResponse(replay.get());
+            }
+        }
+
         CreateOrderCommand command = orderWebMapper.toCommand(request);
-        Order order = orderUseCase.createOrder(command, idempotencyKey);
+        Order order = orderUseCase.createOrder(command);
         OrderResponse response = orderWebMapper.toResponse(order);
-        return ResponseEntity
-                .created(URI.create("/customer-orders/" + response.id()))
-                .body(response);
+
+        if (idempotencyKey != null) {
+            try {
+                idempotencyService.store(idempotencyKey, requestHash, order.getId(), 201,
+                        objectMapper.writeValueAsString(response));
+            } catch (JsonProcessingException e) {
+                log.warn("Failed to store idempotency result for key {}", idempotencyKey, e);
+            }
+        }
+
+        return ResponseEntity.created(URI.create("/customer-orders/" + response.id())).body(response);
+    }
+
+    private ResponseEntity<OrderResponse> buildReplayResponse(StoredResponse stored) {
+        try {
+            return ResponseEntity.status(stored.responseStatus())
+                    .header("X-Idempotent-Replayed", "true")
+                    .body(objectMapper.readValue(stored.responseBody(), OrderResponse.class));
+        } catch (JsonProcessingException e) {
+            // Logged here (not in the catch-all) so the corrupted body is visible in the log entry.
+            log.error("Cannot deserialise stored idempotency response body: [{}]", stored.responseBody(), e);
+            throw new IllegalStateException("Corrupted idempotency store", e);
+        }
     }
 
     @Operation(

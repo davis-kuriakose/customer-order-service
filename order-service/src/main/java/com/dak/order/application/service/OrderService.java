@@ -28,8 +28,7 @@ public class OrderService implements OrderUseCase {
 
     @Override
     @Transactional
-    public Order createOrder(CreateOrderCommand command, String idempotencyKey) {
-        // idempotencyKey persistence handled in TASK-09
+    public Order createOrder(CreateOrderCommand command) {
         Order order = Order.create(command);
         log.info("Creating order id={} category={}", order.getId(), order.getCategory());
         return orderRepositoryPort.save(order);

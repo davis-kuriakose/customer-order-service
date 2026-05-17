@@ -1,8 +1,10 @@
 package com.dak.order.web.controller;
 
+import com.dak.order.application.service.IdempotencyService;
 import com.dak.order.domain.command.CreateOrderCommand;
 import com.dak.order.domain.command.PatchOrderCommand;
 import com.dak.order.domain.exception.OrderNotFoundException;
+import com.dak.order.domain.port.outbound.IdempotencyRepositoryPort.StoredResponse;
 import com.dak.order.domain.model.Customer;
 import com.dak.order.domain.model.Order;
 import com.dak.order.domain.model.OrderCategory;
@@ -26,6 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -55,6 +58,9 @@ class OrderControllerTest {
 
     @MockBean
     OrderWebMapper orderWebMapper;
+
+    @MockBean
+    IdempotencyService idempotencyService;
 
     private static final UUID ORDER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
@@ -89,7 +95,7 @@ class OrderControllerTest {
         OrderResponse response = buildOrderResponse();
 
         when(orderWebMapper.toCommand(any())).thenReturn(command);
-        when(orderUseCase.createOrder(any(), isNull())).thenReturn(order);
+        when(orderUseCase.createOrder(any())).thenReturn(order);
         when(orderWebMapper.toResponse(any())).thenReturn(response);
 
         String body = """
@@ -229,5 +235,41 @@ class OrderControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isArray())
                 .andExpect(jsonPath("$.total").value(1));
+    }
+
+    @Test
+    void createOrder_returns201_withReplayHeader_whenIdempotencyKeyAlreadySeen() throws Exception {
+        String storedBody = objectMapper.writeValueAsString(buildOrderResponse());
+        StoredResponse stored = new StoredResponse("hash-abc", 201, storedBody);
+
+        when(idempotencyService.computeHash(any())).thenReturn("hash-abc");
+        when(idempotencyService.check("idem-key-1", "hash-abc")).thenReturn(Optional.of(stored));
+
+        mockMvc.perform(post("/customer-orders")
+                        .with(csrf())
+                        .header("Idempotency-Key", "idem-key-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"category\":\"B2B\",\"customerId\":\"c\",\"siteId\":\"s\"," +
+                                 "\"orderItems\":[{\"productOfferingId\":\"po-1\",\"quantity\":1}]," +
+                                 "\"paymentMethodType\":\"INVOICE\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("X-Idempotent-Replayed", "true"))
+                .andExpect(jsonPath("$.id").value(ORDER_ID.toString()));
+    }
+
+    @Test
+    void createOrder_returns409_whenIdempotencyKeyConflict() throws Exception {
+        when(idempotencyService.computeHash(any())).thenReturn("hash-new");
+        when(idempotencyService.check(any(), any()))
+                .thenThrow(new com.dak.order.domain.exception.IdempotencyConflictException("idem-key-1"));
+
+        mockMvc.perform(post("/customer-orders")
+                        .with(csrf())
+                        .header("Idempotency-Key", "idem-key-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"category\":\"B2B\",\"customerId\":\"c\",\"siteId\":\"s\"," +
+                                 "\"orderItems\":[{\"productOfferingId\":\"po-1\",\"quantity\":1}]," +
+                                 "\"paymentMethodType\":\"INVOICE\"}"))
+                .andExpect(status().isConflict());
     }
 }

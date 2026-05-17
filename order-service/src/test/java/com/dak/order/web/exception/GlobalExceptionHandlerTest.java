@@ -91,4 +91,15 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(body.getDetail()).contains("retry");
     }
+
+    @Test
+    void handleUnexpected_returns500_forAnyUnhandledException() {
+        ResponseEntity<ProblemDetail> response = handler.handleUnexpected(
+                new IllegalStateException("Corrupted idempotency store"));
+        ProblemDetail body = Objects.requireNonNull(response.getBody());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(body.getTitle()).isEqualTo("Internal Server Error");
+        assertThat(body.getDetail()).doesNotContain("Corrupted"); // internal detail never leaked to client
+    }
 }

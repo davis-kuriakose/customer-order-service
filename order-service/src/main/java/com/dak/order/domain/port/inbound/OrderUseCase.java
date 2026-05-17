@@ -10,7 +10,7 @@ import java.util.UUID;
 
 public interface OrderUseCase {
 
-    Order createOrder(CreateOrderCommand command, String idempotencyKey);
+    Order createOrder(CreateOrderCommand command);
 
     Order getOrder(UUID id);
 

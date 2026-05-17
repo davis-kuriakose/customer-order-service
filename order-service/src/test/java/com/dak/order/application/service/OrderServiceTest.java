@@ -67,7 +67,7 @@ class OrderServiceTest {
         Order savedOrder = buildOrder(savedId);
         when(orderRepositoryPort.save(any(Order.class))).thenReturn(savedOrder);
 
-        Order result = orderService.createOrder(command, null);
+        Order result = orderService.createOrder(command);
 
         assertThat(result.getId()).isEqualTo(savedId);
         assertThat(result.getCategory()).isEqualTo(OrderCategory.B2B);

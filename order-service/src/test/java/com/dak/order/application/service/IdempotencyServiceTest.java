@@ -1,0 +1,94 @@
+package com.dak.order.application.service;
+
+import com.dak.order.domain.exception.IdempotencyConflictException;
+import com.dak.order.domain.port.outbound.IdempotencyRepositoryPort;
+import com.dak.order.domain.port.outbound.IdempotencyRepositoryPort.StoredResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class IdempotencyServiceTest {
+
+    @Mock
+    private IdempotencyRepositoryPort idempotencyRepository;
+
+    @Spy
+    private ObjectMapper objectMapper;
+
+    @InjectMocks
+    private IdempotencyService idempotencyService;
+
+    @Test
+    void computeHash_returnsSha256HexString_of64Chars() {
+        String hash = idempotencyService.computeHash("some-request-body");
+
+        assertThat(hash).hasSize(64);
+        assertThat(hash).matches("[0-9a-f]+");
+    }
+
+    @Test
+    void computeHash_sameInputProducesSameHash() {
+        String hash1 = idempotencyService.computeHash("body");
+        String hash2 = idempotencyService.computeHash("body");
+
+        assertThat(hash1).isEqualTo(hash2);
+    }
+
+    @Test
+    void computeHash_differentInputProducesDifferentHash() {
+        String hash1 = idempotencyService.computeHash("body-a");
+        String hash2 = idempotencyService.computeHash("body-b");
+
+        assertThat(hash1).isNotEqualTo(hash2);
+    }
+
+    @Test
+    void check_returnsEmpty_whenKeyNotFound() {
+        when(idempotencyRepository.findByKey("key-1")).thenReturn(Optional.empty());
+
+        Optional<StoredResponse> result = idempotencyService.check("key-1", "hash-abc");
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void check_returnsStoredResponse_whenSameHash() {
+        StoredResponse stored = new StoredResponse("hash-abc", 201, "{\"id\":\"...\"}");
+        when(idempotencyRepository.findByKey("key-1")).thenReturn(Optional.of(stored));
+
+        Optional<StoredResponse> result = idempotencyService.check("key-1", "hash-abc");
+
+        assertThat(result).contains(stored);
+    }
+
+    @Test
+    void check_throwsIdempotencyConflictException_whenDifferentHash() {
+        StoredResponse stored = new StoredResponse("hash-original", 201, "{\"id\":\"...\"}");
+        when(idempotencyRepository.findByKey("key-1")).thenReturn(Optional.of(stored));
+
+        assertThatThrownBy(() -> idempotencyService.check("key-1", "hash-different"))
+                .isInstanceOf(IdempotencyConflictException.class)
+                .hasMessageContaining("key-1");
+    }
+
+    @Test
+    void store_delegatesToRepository() {
+        UUID orderId = UUID.randomUUID();
+        idempotencyService.store("key-1", "hash-abc", orderId, 201, "{\"id\":\"...\"}");
+
+        verify(idempotencyRepository).store("key-1", "hash-abc", orderId, 201, "{\"id\":\"...\"}");
+    }
+}
