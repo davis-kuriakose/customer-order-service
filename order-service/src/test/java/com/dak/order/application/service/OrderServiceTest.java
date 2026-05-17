@@ -3,6 +3,7 @@ package com.dak.order.application.service;
 import com.dak.order.domain.command.CreateOrderCommand;
 import com.dak.order.domain.command.PatchOrderCommand;
 import com.dak.order.domain.exception.OrderNotFoundException;
+import com.dak.order.domain.model.PagedOrders;
 import com.dak.order.domain.model.Customer;
 import com.dak.order.domain.model.Order;
 import com.dak.order.domain.model.OrderCategory;
@@ -166,6 +167,39 @@ class OrderServiceTest {
 
         assertThatThrownBy(() -> orderService.patchOrder(id, patch))
                 .isInstanceOf(OrderMutationForbiddenException.class);
+    }
+
+    // ── TASK-22: Unified paged list ───────────────────────────────────────────
+
+    @Test
+    void listOrders_returnsPagedOrders_withItemsAndTotal() {
+        UUID id = UUID.randomUUID();
+        Order order = buildOrder(id);
+        PagedOrders pagedOrders = new PagedOrders(List.of(order), 1L);
+        when(orderRepositoryPort.findAll(null, 20, 0)).thenReturn(pagedOrders);
+
+        PagedOrders result = orderService.listOrders(null, 20, 0);
+
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().get(0).getId()).isEqualTo(id);
+        assertThat(result.total()).isEqualTo(1L);
+        verify(orderRepositoryPort).findAll(null, 20, 0);
+    }
+
+    // ── TASK-15: Domain construction guards ──────────────────────────────────
+
+    @Test
+    void createOrder_throwsIllegalArgument_whenDirectDebitWithoutIban() {
+        CreateOrderCommand command = new CreateOrderCommand(
+                OrderCategory.B2B, "cust-1", "site-1",
+                List.of(new OrderItem("po-1", 2)),
+                PaymentMethodType.DIRECT_DEBIT, null);
+        doNothing().when(catalogPort).validateOfferings(anyList());
+
+        assertThatThrownBy(() -> orderService.createOrder(command))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("IBAN is required");
+        verify(orderRepositoryPort, never()).save(any());
     }
 
     // ── TASK-12: Catalog validation ───────────────────────────────────────────

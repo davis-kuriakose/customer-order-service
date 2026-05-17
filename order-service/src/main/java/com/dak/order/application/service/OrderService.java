@@ -5,16 +5,16 @@ import com.dak.order.domain.command.PatchOrderCommand;
 import com.dak.order.domain.exception.OrderNotFoundException;
 import com.dak.order.domain.model.Order;
 import com.dak.order.domain.model.OrderCategory;
+import com.dak.order.domain.model.PagedOrders;
 import com.dak.order.domain.port.inbound.OrderUseCase;
 import com.dak.order.domain.port.outbound.CatalogPort;
 import com.dak.order.domain.port.outbound.OrderRepositoryPort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Service
 public class OrderService implements OrderUseCase {
@@ -48,14 +48,8 @@ public class OrderService implements OrderUseCase {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Order> listOrders(OrderCategory category, int limit, int offset) {
+    public PagedOrders listOrders(OrderCategory category, int limit, int offset) {
         return orderRepositoryPort.findAll(category, limit, offset);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public long countOrders(OrderCategory category) {
-        return orderRepositoryPort.countAll(category);
     }
 
     @Override

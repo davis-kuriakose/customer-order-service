@@ -9,6 +9,7 @@ import com.dak.order.domain.model.Customer;
 import com.dak.order.domain.model.Order;
 import com.dak.order.domain.model.OrderCategory;
 import com.dak.order.domain.model.OrderItem;
+import com.dak.order.domain.model.PagedOrders;
 import com.dak.order.domain.model.PaymentMethod;
 import com.dak.order.domain.model.PaymentMethodType;
 import com.dak.order.domain.model.Site;
@@ -205,8 +206,8 @@ class OrderControllerTest {
     void listOrders_returns200_withPagedResponse() throws Exception {
         Order order = buildOrder();
         OrderResponse response = buildOrderResponse();
-        when(orderUseCase.listOrders(isNull(), anyInt(), anyInt())).thenReturn(List.of(order));
-        when(orderUseCase.countOrders(isNull())).thenReturn(1L);
+        PagedOrders pagedOrders = new PagedOrders(List.of(order), 1L);
+        when(orderUseCase.listOrders(isNull(), anyInt(), anyInt())).thenReturn(pagedOrders);
         when(orderWebMapper.toResponse(order)).thenReturn(response);
 
         mockMvc.perform(get("/customer-orders")
@@ -224,8 +225,8 @@ class OrderControllerTest {
     void listOrders_returns200_filteredByCategory() throws Exception {
         Order order = buildOrder();
         OrderResponse response = buildOrderResponse();
-        when(orderUseCase.listOrders(any(OrderCategory.class), anyInt(), anyInt())).thenReturn(List.of(order));
-        when(orderUseCase.countOrders(any(OrderCategory.class))).thenReturn(1L);
+        PagedOrders pagedOrders = new PagedOrders(List.of(order), 1L);
+        when(orderUseCase.listOrders(any(OrderCategory.class), anyInt(), anyInt())).thenReturn(pagedOrders);
         when(orderWebMapper.toResponse(order)).thenReturn(response);
 
         mockMvc.perform(get("/customer-orders")

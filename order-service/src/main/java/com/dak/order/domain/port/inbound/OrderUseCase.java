@@ -4,8 +4,8 @@ import com.dak.order.domain.command.CreateOrderCommand;
 import com.dak.order.domain.command.PatchOrderCommand;
 import com.dak.order.domain.model.Order;
 import com.dak.order.domain.model.OrderCategory;
+import com.dak.order.domain.model.PagedOrders;
 
-import java.util.List;
 import java.util.UUID;
 
 public interface OrderUseCase {
@@ -14,9 +14,7 @@ public interface OrderUseCase {
 
     Order getOrder(UUID id);
 
-    List<Order> listOrders(OrderCategory category, int limit, int offset);
-
-    long countOrders(OrderCategory category);
+    PagedOrders listOrders(OrderCategory category, int limit, int offset);
 
     Order patchOrder(UUID id, PatchOrderCommand command);
 }

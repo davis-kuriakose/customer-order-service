@@ -1,0 +1,46 @@
+# ============================================================
+#  .dockerignore — exclude paths from the Docker build context
+#
+#  Both Dockerfiles use `context: .` (monorepo root), so this
+#  file controls what is sent to the daemon for every service.
+#  Keeping the context small speeds up builds and prevents
+#  secrets / editor state from leaking into images.
+# ============================================================
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Maven build output — images rebuild from source inside Docker
+**/target/
+
+# Documentation
+*.md
+docs/
+
+# IDE and editor artefacts
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Claude Code / AI tooling
+.claude/
+
+# Local environment overrides — never bake credentials into images
+.env
+.env.*
+!.env.example
+
+# Docker Compose override (not needed inside an image)
+docker-compose.override.yml
+
+# JVM crash dumps that accumulate in the repo root
+hs_err_pid*.log
+replay_pid*.log
+
+# Makefile (not needed at runtime)
+Makefile

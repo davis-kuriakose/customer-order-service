@@ -2,10 +2,12 @@ package com.dak.order.infrastructure.persistence.repository;
 
 import com.dak.order.domain.model.Order;
 import com.dak.order.domain.model.OrderCategory;
+import com.dak.order.domain.model.PagedOrders;
 import com.dak.order.domain.port.outbound.OrderRepositoryPort;
 import com.dak.order.infrastructure.persistence.entity.OrderItemJpaEntity;
 import com.dak.order.infrastructure.persistence.entity.OrderJpaEntity;
 import com.dak.order.infrastructure.persistence.mapper.OrderPersistenceMapper;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
@@ -41,20 +43,18 @@ public class OrderRepositoryAdapter implements OrderRepositoryPort {
     }
 
     @Override
-    public List<Order> findAll(OrderCategory category, int limit, int offset) {
+    public PagedOrders findAll(OrderCategory category, int limit, int offset) {
         PageRequest page = PageRequest.of(offset / limit, limit, Sort.by("createdAt").descending());
+        Page<OrderJpaEntity> pageResult;
         if (category != null) {
-            return jpaRepository.findByCategory(category.name(), page)
-                    .map(mapper::toDomain).toList();
+            pageResult = jpaRepository.findByCategory(category.name(), page);
+        } else {
+            // Spring Data fires a COUNT and a data query within the same transaction;
+            // getTotalElements() surfaces the count without a second @Transactional call.
+            pageResult = jpaRepository.findAll(page);
         }
-        return jpaRepository.findAll(page).map(mapper::toDomain).toList();
-    }
-
-    @Override
-    public long countAll(OrderCategory category) {
-        return category != null
-                ? jpaRepository.countByCategory(category.name())
-                : jpaRepository.count();
+        List<Order> items = pageResult.map(mapper::toDomain).toList();
+        return new PagedOrders(items, pageResult.getTotalElements());
     }
 
     // Mapper sets field values; adapter controls parent-ref assignment and UUID generation.

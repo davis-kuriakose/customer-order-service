@@ -12,7 +12,9 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -64,5 +66,28 @@ class CatalogRestAdapterTest {
 
         assertThatThrownBy(() -> adapter.validateOfferings(List.of("po-1")))
                 .isInstanceOf(CatalogUnavailableException.class);
+    }
+
+    // ── Virtual-thread parallel validation (OPPORTUNITY 1) ────────────────────
+
+    @Test
+    void validateOfferings_multipleOfferings_allValidatedConcurrently() {
+        AtomicInteger callCount = new AtomicInteger(0);
+        mockGetChain(callCount::incrementAndGet);
+
+        assertThatCode(() -> adapter.validateOfferings(List.of("po-1", "po-2", "po-3")))
+                .doesNotThrowAnyException();
+        // All 3 offerings must have been checked before validateOfferings returns
+        assertThat(callCount.get()).isEqualTo(3);
+    }
+
+    @Test
+    void validateOfferings_oneOfMultipleUnknown_throwsProductOfferingNotFoundException() {
+        // Mock throws NotFound on every call — simulates po-bad being invalid
+        mockGetChain(() -> { throw HttpClientErrorException.NotFound.create(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Not Found", null, null, null); });
+
+        assertThatThrownBy(() -> adapter.validateOfferings(List.of("po-bad", "po-1")))
+                .isInstanceOf(ProductOfferingNotFoundException.class);
     }
 }

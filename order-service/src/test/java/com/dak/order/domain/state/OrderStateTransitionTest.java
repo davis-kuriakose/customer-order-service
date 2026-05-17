@@ -29,14 +29,18 @@ class OrderStateTransitionTest {
 
     @ParameterizedTest(name = "{0} → {1} is rejected")
     @CsvSource({
+            "DRAFT,     DRAFT",
             "DRAFT,     SUBMITTED",
             "DRAFT,     CONFIRMED",
+            "PREVIEW,   PREVIEW",
             "PREVIEW,   CONFIRMED",
             "SUBMITTED, DRAFT",
             "SUBMITTED, PREVIEW",
+            "SUBMITTED, SUBMITTED",
             "CONFIRMED, DRAFT",
             "CONFIRMED, PREVIEW",
-            "CONFIRMED, SUBMITTED"
+            "CONFIRMED, SUBMITTED",
+            "CONFIRMED, CONFIRMED"
     })
     void invalidTransition_throwsInvalidStateTransitionException(String from, String to) {
         OrderState state = OrderStateFactory.from(from);

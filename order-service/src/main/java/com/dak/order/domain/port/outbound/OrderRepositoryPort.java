@@ -2,8 +2,8 @@ package com.dak.order.domain.port.outbound;
 
 import com.dak.order.domain.model.Order;
 import com.dak.order.domain.model.OrderCategory;
+import com.dak.order.domain.model.PagedOrders;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,7 +13,5 @@ public interface OrderRepositoryPort {
 
     Optional<Order> findById(UUID id);
 
-    List<Order> findAll(OrderCategory category, int limit, int offset);
-
-    long countAll(OrderCategory category);
+    PagedOrders findAll(OrderCategory category, int limit, int offset);
 }

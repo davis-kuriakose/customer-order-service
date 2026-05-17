@@ -5,6 +5,7 @@ import com.dak.order.domain.command.CreateOrderCommand;
 import com.dak.order.domain.command.PatchOrderCommand;
 import com.dak.order.domain.model.Order;
 import com.dak.order.domain.model.OrderCategory;
+import com.dak.order.domain.model.PagedOrders;
 import com.dak.order.domain.port.inbound.OrderUseCase;
 import com.dak.order.domain.port.outbound.IdempotencyRepositoryPort.StoredResponse;
 import com.dak.order.web.dto.CreateOrderRequest;
@@ -46,6 +47,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
 
 @Tag(name = "Orders", description = "Customer order lifecycle management")
 @RestController
@@ -152,10 +154,9 @@ public class OrderController {
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit,
             @Parameter(description = "Number of results to skip for pagination", example = "0")
             @RequestParam(defaultValue = "0") @Min(0) int offset) {
-        List<Order> orders = orderUseCase.listOrders(category, limit, offset);
-        long total = orderUseCase.countOrders(category);
-        List<OrderResponse> items = orders.stream().map(orderWebMapper::toResponse).toList();
-        return new PagedResponse<>(items, total, limit, offset);
+        PagedOrders result = orderUseCase.listOrders(category, limit, offset);
+        List<OrderResponse> items = result.items().stream().map(orderWebMapper::toResponse).toList();
+        return new PagedResponse<>(items, result.total(), limit, offset);
     }
 
     @Operation(

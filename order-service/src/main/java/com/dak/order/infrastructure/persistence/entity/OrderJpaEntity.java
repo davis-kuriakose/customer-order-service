@@ -9,6 +9,10 @@ import java.util.UUID;
 
 // Explicit getters/setters — avoids Lombok IDE plugin requirement and follows JPA best practices
 // (JPA entities should be mutable, explicit, and free of equals/hashCode surprises from @Data).
+@NamedEntityGraph(
+        name = "Order.withItems",
+        attributeNodes = @NamedAttributeNode("orderItems")
+)
 @Entity
 @Table(name = "orders")
 public class OrderJpaEntity {
@@ -45,7 +49,7 @@ public class OrderJpaEntity {
     @Column(nullable = false)
     private Long version;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<OrderItemJpaEntity> orderItems = new ArrayList<>();
 
     public UUID getId()                              { return id; }
