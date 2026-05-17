@@ -68,20 +68,20 @@ class OrderServiceTest {
     }
 
     @Test
-    void createOrder_savesAndReturnsOrder() {
+    void createOrder_createsAndReturnsOrder() {
         CreateOrderCommand command = new CreateOrderCommand(
                 OrderCategory.B2B, "cust-1", "site-1",
                 List.of(new OrderItem("po-1", 2)),
                 PaymentMethodType.INVOICE, null);
         UUID savedId = UUID.randomUUID();
         Order savedOrder = buildOrder(savedId);
-        when(orderRepositoryPort.save(any(Order.class))).thenReturn(savedOrder);
+        when(orderRepositoryPort.create(any(Order.class))).thenReturn(savedOrder);
 
         Order result = orderService.createOrder(command);
 
         assertThat(result.getId()).isEqualTo(savedId);
         assertThat(result.getCategory()).isEqualTo(OrderCategory.B2B);
-        verify(orderRepositoryPort).save(any(Order.class));
+        verify(orderRepositoryPort).create(any(Order.class));
     }
 
     @Test
@@ -199,24 +199,24 @@ class OrderServiceTest {
         assertThatThrownBy(() -> orderService.createOrder(command))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("IBAN is required");
-        verify(orderRepositoryPort, never()).save(any());
+        verify(orderRepositoryPort, never()).create(any());
     }
 
     // ── TASK-12: Catalog validation ───────────────────────────────────────────
 
     @Test
-    void createOrder_callsCatalogValidation_beforeSaving() {
+    void createOrder_callsCatalogValidation_beforeCreating() {
         CreateOrderCommand command = new CreateOrderCommand(
                 OrderCategory.B2B, "cust-1", "site-1",
                 List.of(new OrderItem("po-1", 2)),
                 PaymentMethodType.INVOICE, null);
         doNothing().when(catalogPort).validateOfferings(anyList());
-        when(orderRepositoryPort.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(orderRepositoryPort.create(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         orderService.createOrder(command);
 
         verify(catalogPort).validateOfferings(List.of("po-1"));
-        verify(orderRepositoryPort).save(any(Order.class));
+        verify(orderRepositoryPort).create(any(Order.class));
     }
 
     @Test
@@ -231,7 +231,7 @@ class OrderServiceTest {
         assertThatThrownBy(() -> orderService.createOrder(command))
                 .isInstanceOf(ProductOfferingNotFoundException.class)
                 .hasMessageContaining("po-unknown");
-        verify(orderRepositoryPort, never()).save(any());
+        verify(orderRepositoryPort, never()).create(any());
     }
 
     @Test

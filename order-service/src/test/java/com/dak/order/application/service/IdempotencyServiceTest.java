@@ -56,6 +56,29 @@ class IdempotencyServiceTest {
     }
 
     @Test
+    void computeHash_isCorrectAndConsistentAcrossConcurrentVirtualThreadCalls() throws InterruptedException {
+        // Verifies that ThreadLocal<MessageDigest> produces correct, identical hashes
+        // across many concurrent virtual threads — no shared-state corruption.
+        int threadCount = 50;
+        String input = "concurrent-idempotency-test";
+        String expected = idempotencyService.computeHash(input);
+        String[] results = new String[threadCount];
+        Thread[] threads = new Thread[threadCount];
+
+        for (int i = 0; i < threadCount; i++) {
+            final int idx = i;
+            threads[i] = Thread.ofVirtual().start(() -> results[idx] = idempotencyService.computeHash(input));
+        }
+        for (Thread t : threads) {
+            t.join();
+        }
+
+        for (String result : results) {
+            assertThat(result).isEqualTo(expected);
+        }
+    }
+
+    @Test
     void check_returnsEmpty_whenKeyNotFound() {
         when(idempotencyRepository.findByKey("key-1")).thenReturn(Optional.empty());
 

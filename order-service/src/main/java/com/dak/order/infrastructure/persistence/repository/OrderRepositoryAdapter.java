@@ -28,8 +28,19 @@ public class OrderRepositoryAdapter implements OrderRepositoryPort {
     }
 
     @Override
+    public Order create(Order order) {
+        // Fresh entity: @Version is null → Spring Data JPA isNew() returns true
+        // → em.persist() (INSERT) is called directly, no preceding SELECT.
+        OrderJpaEntity entity = new OrderJpaEntity();
+        mapper.updateEntity(entity, order);
+        syncItems(entity, order);
+        return mapper.toDomain(jpaRepository.save(entity));
+    }
+
+    @Override
     public Order save(Order order) {
-        // Load existing to preserve @Version — prevents optimistic lock false-positives.
+        // Load existing entity to preserve @Version — without it Hibernate cannot perform
+        // optimistic-locking checks and would throw OptimisticLockException on every update.
         OrderJpaEntity entity = jpaRepository.findById(order.getId())
                 .orElseGet(OrderJpaEntity::new);
         mapper.updateEntity(entity, order);
@@ -49,7 +60,7 @@ public class OrderRepositoryAdapter implements OrderRepositoryPort {
         if (category != null) {
             pageResult = jpaRepository.findByCategory(category.name(), page);
         } else {
-            // Spring Data fires a COUNT and a data query within the same transaction;
+            // Spring Data fires both the data query and a COUNT within the same transaction.
             // getTotalElements() surfaces the count without a second @Transactional call.
             pageResult = jpaRepository.findAll(page);
         }

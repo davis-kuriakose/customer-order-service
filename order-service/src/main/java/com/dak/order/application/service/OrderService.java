@@ -36,7 +36,7 @@ public class OrderService implements OrderUseCase {
                 command.orderItems().stream().map(item -> item.productOfferingId()).toList());
         Order order = Order.create(command);
         log.info("Creating order id={} category={}", order.getId(), order.getCategory());
-        return orderRepositoryPort.save(order);
+        return orderRepositoryPort.create(order);
     }
 
     @Override

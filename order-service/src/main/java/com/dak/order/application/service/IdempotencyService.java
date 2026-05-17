@@ -18,6 +18,19 @@ import java.util.UUID;
 @Service
 public class IdempotencyService {
 
+    // MessageDigest is NOT thread-safe and cannot be shared. MessageDigest.getInstance()
+    // performs a JCA provider lookup on every call (synchronized internally). ThreadLocal
+    // gives each thread its own instance — the provider lookup happens once per thread,
+    // not once per request. After digest() is called, MessageDigest auto-resets itself,
+    // so the instance is safely reusable within the same thread.
+    private static final ThreadLocal<MessageDigest> SHA_256 = ThreadLocal.withInitial(() -> {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available on this JVM", e);
+        }
+    });
+
     private final IdempotencyRepositoryPort idempotencyRepository;
     private final ObjectMapper objectMapper;
 
@@ -55,13 +68,10 @@ public class IdempotencyService {
     public String computeHash(Object obj) {
         try {
             String json = objectMapper.writeValueAsString(obj);
-            byte[] hash = MessageDigest.getInstance("SHA-256")
-                    .digest(json.getBytes(StandardCharsets.UTF_8));
+            byte[] hash = SHA_256.get().digest(json.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Cannot serialise request for hashing", e);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 not available on this JVM", e);
         }
     }
 }
