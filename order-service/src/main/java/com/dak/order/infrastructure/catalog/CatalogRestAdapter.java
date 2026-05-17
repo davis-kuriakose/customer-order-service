@@ -3,6 +3,7 @@ package com.dak.order.infrastructure.catalog;
 import com.dak.order.domain.exception.CatalogUnavailableException;
 import com.dak.order.domain.exception.ProductOfferingNotFoundException;
 import com.dak.order.domain.port.outbound.CatalogPort;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -25,8 +26,21 @@ public class CatalogRestAdapter implements CatalogPort {
     }
 
     @Override
+    @CircuitBreaker(name = "catalog", fallbackMethod = "catalogUnavailable")
     public void validateOfferings(List<String> productOfferingIds) {
         productOfferingIds.forEach(this::validateSingleOffering);
+    }
+
+    // Fallback: called when circuit is OPEN (fail-fast) or when CatalogUnavailableException escapes.
+    // ProductOfferingNotFoundException is in ignoreExceptions — it bypasses this fallback entirely.
+    @SuppressWarnings("unused")
+    private void catalogUnavailable(List<String> productOfferingIds, Throwable t) {
+        log.warn("Catalog circuit open — fast-failing validation for {} offering(s)",
+                productOfferingIds.size(), t);
+        if (t instanceof CatalogUnavailableException e) {
+            throw e;
+        }
+        throw new CatalogUnavailableException(t);
     }
 
     private void validateSingleOffering(String id) {

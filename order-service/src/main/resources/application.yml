@@ -45,6 +45,8 @@ resilience4j:
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 3
         register-health-indicator: true
+        ignore-exceptions:
+          - com.dak.order.domain.exception.ProductOfferingNotFoundException
   timelimiter:
     instances:
       catalog:
