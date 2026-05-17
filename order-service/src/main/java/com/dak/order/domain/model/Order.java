@@ -6,16 +6,26 @@ import com.dak.order.domain.state.DraftState;
 import com.dak.order.domain.state.OrderState;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 /**
- * Order aggregate root — immutable. All mutations return a new instance.
- * Uses an explicit Builder (Effective Java Item 2) so the class is
- * fully IDE-visible without any annotation processor.
+ * Order aggregate root — immutable.
+ *
+ * Design decision: immutable over mutable aggregate.
+ * All state changes return a new Order instance instead of mutating in place.
+ * This makes the model inherently thread-safe under high concurrent load
+ * without requiring external synchronisation.
+ *
+ * The Builder validates all required invariants in build(), collecting every
+ * violation before throwing, so callers receive a complete error picture.
  */
 public final class Order {
+
+    private static final Logger log = Logger.getLogger(Order.class.getName());
 
     private final UUID id;
     private final OrderState state;
@@ -140,6 +150,31 @@ public final class Order {
         public Builder createdAt(Instant createdAt)      { this.createdAt = createdAt;     return this; }
         public Builder updatedAt(Instant updatedAt)      { this.updatedAt = updatedAt;     return this; }
 
-        public Order build() { return new Order(this); }
+        /**
+         * Validates all domain invariants before constructing the Order.
+         * Collects every violation and throws with the full error list —
+         * callers receive a complete picture, not just the first failure.
+         * Safe default: null orderItems treated as empty list for error reporting clarity.
+         */
+        public Order build() {
+            List<String> errors = new ArrayList<>();
+
+            if (id == null)            errors.add("id is required");
+            if (state == null)         errors.add("state is required");
+            if (category == null)      errors.add("category is required");
+            if (customer == null)      errors.add("customer is required");
+            if (site == null)          errors.add("site is required");
+            if (paymentMethod == null) errors.add("paymentMethod is required");
+            if (orderItems == null || orderItems.isEmpty())
+                                       errors.add("orderItems must contain at least one item");
+
+            if (!errors.isEmpty()) {
+                String message = "Order construction failed: " + String.join("; ", errors);
+                log.severe(message);
+                throw new IllegalStateException(message);
+            }
+
+            return new Order(this);
+        }
     }
 }
