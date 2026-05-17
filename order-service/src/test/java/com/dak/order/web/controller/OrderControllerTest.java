@@ -29,6 +29,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -141,5 +142,41 @@ class OrderControllerTest {
                 .andExpect(result ->
                         assertThat(result.getResolvedException())
                                 .isInstanceOf(OrderNotFoundException.class));
+    }
+
+    @Test
+    void listOrders_returns200_withPagedResponse() throws Exception {
+        Order order = buildOrder();
+        OrderResponse response = buildOrderResponse();
+        when(orderUseCase.listOrders(isNull(), anyInt(), anyInt())).thenReturn(List.of(order));
+        when(orderUseCase.countOrders(isNull())).thenReturn(1L);
+        when(orderWebMapper.toResponse(order)).thenReturn(response);
+
+        mockMvc.perform(get("/customer-orders")
+                        .param("limit", "20")
+                        .param("offset", "0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items[0].id").value(ORDER_ID.toString()))
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.limit").value(20))
+                .andExpect(jsonPath("$.offset").value(0));
+    }
+
+    @Test
+    void listOrders_returns200_filteredByCategory() throws Exception {
+        Order order = buildOrder();
+        OrderResponse response = buildOrderResponse();
+        when(orderUseCase.listOrders(any(OrderCategory.class), anyInt(), anyInt())).thenReturn(List.of(order));
+        when(orderUseCase.countOrders(any(OrderCategory.class))).thenReturn(1L);
+        when(orderWebMapper.toResponse(order)).thenReturn(response);
+
+        mockMvc.perform(get("/customer-orders")
+                        .param("category", "B2B")
+                        .param("limit", "10")
+                        .param("offset", "0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.total").value(1));
     }
 }

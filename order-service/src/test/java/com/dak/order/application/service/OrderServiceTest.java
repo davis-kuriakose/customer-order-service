@@ -11,7 +11,12 @@ import com.dak.order.domain.model.PaymentMethod;
 import com.dak.order.domain.model.PaymentMethodType;
 import com.dak.order.domain.model.Site;
 import com.dak.order.domain.port.outbound.OrderRepositoryPort;
+import com.dak.order.domain.exception.InvalidStateTransitionException;
+import com.dak.order.domain.exception.OrderMutationForbiddenException;
+import com.dak.order.domain.state.ConfirmedState;
 import com.dak.order.domain.state.DraftState;
+import com.dak.order.domain.state.OrderState;
+import com.dak.order.domain.state.SubmittedState;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -114,5 +119,57 @@ class OrderServiceTest {
         assertThatThrownBy(() -> orderService.patchOrder(id, patch))
                 .isInstanceOf(OrderNotFoundException.class)
                 .hasMessageContaining(id.toString());
+    }
+
+    // ── TASK-06: State transition validation ──────────────────────────────────
+
+    @Test
+    void patchOrder_throwsInvalidStateTransitionException_whenTransitionDisallowed() {
+        UUID id = UUID.randomUUID();
+        Order draftOrder = buildOrder(id);  // DRAFT state
+        // DRAFT → CONFIRMED is not a valid transition (must go via PREVIEW → SUBMITTED first)
+        PatchOrderCommand patch = new PatchOrderCommand("CONFIRMED", null, null, null, null, null);
+        when(orderRepositoryPort.findById(id)).thenReturn(Optional.of(draftOrder));
+
+        assertThatThrownBy(() -> orderService.patchOrder(id, patch))
+                .isInstanceOf(InvalidStateTransitionException.class);
+    }
+
+    @Test
+    void patchOrder_throwsOrderMutationForbiddenException_whenSubmittedAndNonStateFields() {
+        UUID id = UUID.randomUUID();
+        Order submittedOrder = buildOrderInState(id, new SubmittedState());
+        // SUBMITTED orders reject any non-state field changes
+        PatchOrderCommand patch = new PatchOrderCommand(null, null, "new-cust", null, null, null);
+        when(orderRepositoryPort.findById(id)).thenReturn(Optional.of(submittedOrder));
+
+        assertThatThrownBy(() -> orderService.patchOrder(id, patch))
+                .isInstanceOf(OrderMutationForbiddenException.class);
+    }
+
+    @Test
+    void patchOrder_throwsOrderMutationForbiddenException_whenConfirmed() {
+        UUID id = UUID.randomUUID();
+        Order confirmedOrder = buildOrderInState(id, new ConfirmedState());
+        // CONFIRMED orders reject all patches — even pure state transitions
+        PatchOrderCommand patch = new PatchOrderCommand("DRAFT", null, null, null, null, null);
+        when(orderRepositoryPort.findById(id)).thenReturn(Optional.of(confirmedOrder));
+
+        assertThatThrownBy(() -> orderService.patchOrder(id, patch))
+                .isInstanceOf(OrderMutationForbiddenException.class);
+    }
+
+    private Order buildOrderInState(UUID id, OrderState state) {
+        return Order.builder()
+                .id(id)
+                .state(state)
+                .category(OrderCategory.B2B)
+                .customer(new Customer("cust-1"))
+                .site(new Site("site-1"))
+                .orderItems(List.of(new OrderItem("po-1", 2)))
+                .paymentMethod(new PaymentMethod(PaymentMethodType.INVOICE, null))
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
     }
 }
