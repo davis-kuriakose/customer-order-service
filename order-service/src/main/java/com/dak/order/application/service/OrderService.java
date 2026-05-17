@@ -12,12 +12,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class OrderService implements OrderUseCase {
 
-    private static final Logger log = Logger.getLogger(OrderService.class.getName());
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     private final OrderRepositoryPort orderRepositoryPort;
 
@@ -30,7 +31,7 @@ public class OrderService implements OrderUseCase {
     public Order createOrder(CreateOrderCommand command, String idempotencyKey) {
         // idempotencyKey persistence handled in TASK-09
         Order order = Order.create(command);
-        log.info("Creating order id=" + order.getId() + " category=" + order.getCategory());
+        log.info("Creating order id={} category={}", order.getId(), order.getCategory());
         return orderRepositoryPort.save(order);
     }
 

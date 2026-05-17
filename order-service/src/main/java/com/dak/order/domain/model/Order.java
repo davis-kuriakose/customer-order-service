@@ -10,7 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Order aggregate root — immutable.
@@ -25,7 +26,7 @@ import java.util.logging.Logger;
  */
 public final class Order {
 
-    private static final Logger log = Logger.getLogger(Order.class.getName());
+    private static final Logger log = LoggerFactory.getLogger(Order.class);
 
     private final UUID id;
     private final OrderState state;
@@ -170,7 +171,7 @@ public final class Order {
 
             if (!errors.isEmpty()) {
                 String message = "Order construction failed: " + String.join("; ", errors);
-                log.severe(message);
+                log.error(message);
                 throw new IllegalStateException(message);
             }
 

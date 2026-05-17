@@ -24,12 +24,14 @@ public interface OrderPersistenceMapper {
     // ── Domain → Entity (update in-place) ────────────────────────────────────
     // orderItems ignored here — adapter clears and rebuilds the collection
     // to control parent reference assignment and UUID generation.
+    // state.name(), category.name(), type.name() are not JavaBean getters —
+    // @Named methods call .name() explicitly instead of property chaining.
 
-    @Mapping(target = "state",             source = "state.name")
-    @Mapping(target = "category",          source = "category.name")
+    @Mapping(target = "state",             source = "state",              qualifiedByName = "stateToName")
+    @Mapping(target = "category",          source = "category",           qualifiedByName = "categoryToName")
     @Mapping(target = "customerId",        source = "customer.id")
     @Mapping(target = "siteId",            source = "site.id")
-    @Mapping(target = "paymentMethodType", source = "paymentMethod.type.name")
+    @Mapping(target = "paymentMethodType", source = "paymentMethod.type", qualifiedByName = "paymentMethodTypeToName")
     @Mapping(target = "paymentMethodIban", source = "paymentMethod.iban")
     @Mapping(target = "version",           ignore = true)
     @Mapping(target = "orderItems",        ignore = true)
@@ -73,5 +75,20 @@ public interface OrderPersistenceMapper {
         return new PaymentMethod(
                 PaymentMethodType.valueOf(entity.getPaymentMethodType()),
                 entity.getPaymentMethodIban());
+    }
+
+    @Named("stateToName")
+    default String stateToName(OrderState state) {
+        return state != null ? state.name() : null;
+    }
+
+    @Named("categoryToName")
+    default String categoryToName(OrderCategory category) {
+        return category != null ? category.name() : null;
+    }
+
+    @Named("paymentMethodTypeToName")
+    default String paymentMethodTypeToName(PaymentMethodType type) {
+        return type != null ? type.name() : null;
     }
 }

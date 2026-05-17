@@ -1,12 +1,14 @@
 package com.dak.order.web.controller;
 
 import com.dak.order.domain.command.CreateOrderCommand;
+import com.dak.order.domain.command.PatchOrderCommand;
 import com.dak.order.domain.model.Order;
 import com.dak.order.domain.model.OrderCategory;
 import com.dak.order.domain.port.inbound.OrderUseCase;
 import com.dak.order.web.dto.CreateOrderRequest;
 import com.dak.order.web.dto.OrderResponse;
 import com.dak.order.web.dto.PagedResponse;
+import com.dak.order.web.dto.PatchOrderRequest;
 import com.dak.order.web.mapper.OrderWebMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,6 +26,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -127,5 +130,36 @@ public class OrderController {
             @Parameter(description = "Order UUID", required = true)
             @PathVariable UUID id) {
         return orderWebMapper.toResponse(orderUseCase.getOrder(id));
+    }
+
+    @Operation(
+            summary = "Patch an order",
+            description = "Applies a partial update using JSON Merge Patch semantics (RFC 7396). " +
+                          "Only fields present in the request body are updated. " +
+                          "State transitions are driven by `targetStateName`. " +
+                          "SUBMITTED orders reject non-state field changes (422). " +
+                          "CONFIRMED orders reject all patches (422).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Order updated"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid API key",
+                    content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "404", description = "Order not found",
+                    content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "409", description = "Concurrent modification — optimistic lock conflict",
+                    content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(implementation = ProblemDetail.class))),
+            @ApiResponse(responseCode = "422", description = "Invalid state transition or forbidden mutation",
+                    content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    @PatchMapping(value = "/{id}", consumes = "application/merge-patch+json")
+    public OrderResponse patchOrder(
+            @Parameter(description = "Order UUID", required = true)
+            @PathVariable UUID id,
+            @RequestBody PatchOrderRequest request) {
+        PatchOrderCommand command = orderWebMapper.toPatchCommand(request);
+        return orderWebMapper.toResponse(orderUseCase.patchOrder(id, command));
     }
 }

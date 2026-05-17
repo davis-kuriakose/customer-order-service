@@ -1,6 +1,7 @@
 package com.dak.order.web.controller;
 
 import com.dak.order.domain.command.CreateOrderCommand;
+import com.dak.order.domain.command.PatchOrderCommand;
 import com.dak.order.domain.exception.OrderNotFoundException;
 import com.dak.order.domain.model.Customer;
 import com.dak.order.domain.model.Order;
@@ -27,13 +28,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -135,13 +136,63 @@ class OrderControllerTest {
     }
 
     @Test
-    void getOrder_propagatesOrderNotFoundException_whenNotFound() throws Exception {
+    void getOrder_returns404_whenNotFound() throws Exception {
         when(orderUseCase.getOrder(ORDER_ID)).thenThrow(new OrderNotFoundException(ORDER_ID));
 
         mockMvc.perform(get("/customer-orders/{id}", ORDER_ID))
-                .andExpect(result ->
-                        assertThat(result.getResolvedException())
-                                .isInstanceOf(OrderNotFoundException.class));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Not Found"))
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void patchOrder_returns200_withUpdatedState() throws Exception {
+        PatchOrderCommand command = new PatchOrderCommand("PREVIEW", null, null, null, null, null);
+        Order order = buildOrder();
+        OrderResponse response = new OrderResponse(
+                ORDER_ID, "PREVIEW", "B2B", "cust-1", "site-1",
+                List.of(new OrderItemResponse("po-1", 2)),
+                "INVOICE", null, java.time.Instant.now(), java.time.Instant.now());
+
+        when(orderWebMapper.toPatchCommand(any())).thenReturn(command);
+        when(orderUseCase.patchOrder(any(), any())).thenReturn(order);
+        when(orderWebMapper.toResponse(order)).thenReturn(response);
+
+        mockMvc.perform(patch("/customer-orders/{id}", ORDER_ID)
+                        .with(csrf())
+                        .contentType("application/merge-patch+json")
+                        .content("{\"targetStateName\":\"PREVIEW\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("PREVIEW"));
+    }
+
+    @Test
+    void patchOrder_returns422_onInvalidStateTransition() throws Exception {
+        when(orderWebMapper.toPatchCommand(any()))
+                .thenReturn(new PatchOrderCommand("CONFIRMED", null, null, null, null, null));
+        when(orderUseCase.patchOrder(any(), any()))
+                .thenThrow(new com.dak.order.domain.exception.InvalidStateTransitionException("DRAFT", "CONFIRMED"));
+
+        mockMvc.perform(patch("/customer-orders/{id}", ORDER_ID)
+                        .with(csrf())
+                        .contentType("application/merge-patch+json")
+                        .content("{\"targetStateName\":\"CONFIRMED\"}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.title").value("Unprocessable Entity"));
+    }
+
+    @Test
+    void patchOrder_returns404_whenOrderNotFound() throws Exception {
+        when(orderWebMapper.toPatchCommand(any()))
+                .thenReturn(new PatchOrderCommand(null, null, "new-cust", null, null, null));
+        when(orderUseCase.patchOrder(any(), any()))
+                .thenThrow(new OrderNotFoundException(ORDER_ID));
+
+        mockMvc.perform(patch("/customer-orders/{id}", ORDER_ID)
+                        .with(csrf())
+                        .contentType("application/merge-patch+json")
+                        .content("{\"customerId\":\"new-cust\"}"))
+                .andExpect(status().isNotFound());
     }
 
     @Test
