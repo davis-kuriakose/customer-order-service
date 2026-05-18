@@ -117,4 +117,21 @@ class IdempotencyServiceTest {
 
         verify(idempotencyRepository).store("key-1", "hash-abc", orderId, 201, "{\"id\":\"...\"}");
     }
+
+    @Test
+    void withLock_executesActionAndReturnsResult() {
+        String result = idempotencyService.withLock("key-1", () -> "executed");
+        assertThat(result).isEqualTo("executed");
+    }
+
+    @Test
+    void withLock_releasesLock_evenWhenActionThrows() {
+        assertThatThrownBy(() ->
+            idempotencyService.withLock("key-1", () -> { throw new RuntimeException("boom"); }))
+                .isInstanceOf(RuntimeException.class);
+
+        // Lock must be released — second call on the same key must not deadlock
+        String result = idempotencyService.withLock("key-1", () -> "second call succeeded");
+        assertThat(result).isEqualTo("second call succeeded");
+    }
 }

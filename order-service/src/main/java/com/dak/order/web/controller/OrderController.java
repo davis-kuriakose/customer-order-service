@@ -49,8 +49,6 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantLock;
 
 
 @Tag(name = "Orders", description = "Customer order lifecycle management")
@@ -65,10 +63,6 @@ public class OrderController {
     private final OrderWebMapper orderWebMapper;
     private final IdempotencyService idempotencyService;
     private final ObjectMapper objectMapper;
-    // Per-key lock: serialises concurrent requests for the same idempotency key so that
-    // check() and createOrder() are atomic from the caller's perspective.
-    // Single-instance guard only — replace with a distributed lock (e.g. Redis SETNX) for multi-node.
-    private final ConcurrentHashMap<String, ReentrantLock> idempotencyLocks = new ConcurrentHashMap<>();
 
     public OrderController(OrderUseCase orderUseCase, OrderWebMapper orderWebMapper,
                            IdempotencyService idempotencyService, ObjectMapper objectMapper) {
@@ -107,33 +101,34 @@ public class OrderController {
             @Valid @RequestBody CreateOrderRequest request) {
 
         if (idempotencyKey != null) {
-            // Lock per key: prevents two concurrent identical requests from both passing check() and
-            // creating duplicate orders. check→create→store is serialised for a given idempotency key.
-            ReentrantLock lock = idempotencyLocks.computeIfAbsent(idempotencyKey, k -> new ReentrantLock());
-            lock.lock();
+            String hash = idempotencyService.computeHash(request);
+            // Delegate locking + deduplication logic to the service layer
+            return idempotencyService.withLock(idempotencyKey,
+                    () -> createWithIdempotency(idempotencyKey, hash, request));
+        }
+        return doCreate(request);
+    }
+
+    private ResponseEntity<OrderResponse> createWithIdempotency(
+            String key, String hash, CreateOrderRequest request) {
+        Optional<StoredResponse> replay = idempotencyService.check(key, hash);
+        if (replay.isPresent()) {
+            return buildReplayResponse(replay.get());
+        }
+        ResponseEntity<OrderResponse> result = doCreate(request);
+        OrderResponse response = result.getBody();
+        if (response != null) {
             try {
-                String requestHash = idempotencyService.computeHash(request);
-                Optional<StoredResponse> replay = idempotencyService.check(idempotencyKey, requestHash);
-                if (replay.isPresent()) {
-                    return buildReplayResponse(replay.get());
-                }
-
-                CreateOrderCommand command = orderWebMapper.toCommand(request);
-                Order order = orderUseCase.createOrder(command);
-                OrderResponse response = orderWebMapper.toResponse(order);
-
-                try {
-                    idempotencyService.store(idempotencyKey, requestHash, order.getId(), 201,
-                            objectMapper.writeValueAsString(response));
-                } catch (JsonProcessingException e) {
-                    log.warn("Failed to store idempotency result for key {}", idempotencyKey, e);
-                }
-                return ResponseEntity.created(URI.create("/customer-orders/" + response.id())).body(response);
-            } finally {
-                lock.unlock();
+                idempotencyService.store(key, hash, response.id(), 201,
+                        objectMapper.writeValueAsString(response));
+            } catch (JsonProcessingException e) {
+                log.warn("Failed to store idempotency result for key {}", key, e);
             }
         }
+        return result;
+    }
 
+    private ResponseEntity<OrderResponse> doCreate(CreateOrderRequest request) {
         CreateOrderCommand command = orderWebMapper.toCommand(request);
         Order order = orderUseCase.createOrder(command);
         OrderResponse response = orderWebMapper.toResponse(order);

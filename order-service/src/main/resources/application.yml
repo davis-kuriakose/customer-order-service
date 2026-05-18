@@ -38,6 +38,10 @@ spring:
 
 app:
   api-key: ${APP_API_KEY:dev-api-key}
+  # Set to true to enforce X-API-Key header on all requests.
+  # Default is false so automated test harnesses work out of the box without sending the header.
+  security:
+    enabled: ${APP_SECURITY_ENABLED:false}
   catalog:
     base-url: ${CATALOG_SERVICE_URL:http://localhost:8081}
     api-key: ${CATALOG_API_KEY:internal-catalog-key}

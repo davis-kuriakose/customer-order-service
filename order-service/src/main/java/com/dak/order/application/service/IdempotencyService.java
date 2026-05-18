@@ -14,6 +14,9 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 @Service
 public class IdempotencyService {
@@ -31,12 +34,30 @@ public class IdempotencyService {
         }
     });
 
+    // Per-key lock map — keeps the check→create→store sequence atomic for a given key.
+    // Single-instance guard only; a distributed lock (e.g. Redis SETNX) is needed for multi-node.
+    private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+
     private final IdempotencyRepositoryPort idempotencyRepository;
     private final ObjectMapper objectMapper;
 
     public IdempotencyService(IdempotencyRepositoryPort idempotencyRepository, ObjectMapper objectMapper) {
         this.idempotencyRepository = idempotencyRepository;
         this.objectMapper = objectMapper;
+    }
+
+    /**
+     * Executes {@code action} under a per-key lock so that two concurrent requests
+     * for the same idempotency key cannot both pass {@link #check} and produce duplicates.
+     */
+    public <T> T withLock(String key, Supplier<T> action) {
+        ReentrantLock lock = locks.computeIfAbsent(key, k -> new ReentrantLock());
+        lock.lock();
+        try {
+            return action.get();
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**

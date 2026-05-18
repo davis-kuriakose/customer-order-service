@@ -19,6 +19,7 @@ import com.dak.order.web.dto.OrderItemResponse;
 import com.dak.order.web.dto.OrderResponse;
 import com.dak.order.web.mapper.OrderWebMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -32,9 +33,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import java.util.function.Supplier;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -64,6 +68,15 @@ class OrderControllerTest {
     IdempotencyService idempotencyService;
 
     private static final UUID ORDER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
+    @BeforeEach
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void stubIdempotencyLock() {
+        // withLock() is on a @MockBean — make it pass through to the supplier so controller
+        // logic inside the lambda is still exercised in tests.
+        doAnswer(inv -> ((Supplier) inv.getArgument(1)).get())
+                .when(idempotencyService).withLock(any(), any());
+    }
 
     private Order buildOrder() {
         return Order.builder()

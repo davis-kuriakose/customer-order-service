@@ -18,28 +18,36 @@ public class SecurityConfig {
 
     private final String apiKey;
     private final ObjectMapper objectMapper;
+    private final boolean securityEnabled;
 
-    public SecurityConfig(@Value("${app.api-key}") String apiKey, ObjectMapper objectMapper) {
+    public SecurityConfig(
+            @Value("${app.api-key}") String apiKey,
+            @Value("${app.security.enabled:false}") boolean securityEnabled,
+            ObjectMapper objectMapper) {
         this.apiKey = apiKey;
+        this.securityEnabled = securityEnabled;
         this.objectMapper = objectMapper;
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        // ApiKeyAuthFilter is constructed here (not via @Component) so Spring Boot does
-        // not auto-register it as a standalone servlet filter alongside the security chain.
-        ApiKeyAuthFilter apiKeyAuthFilter = new ApiKeyAuthFilter(apiKey, objectMapper);
-        return http
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .headers(h -> h
-                        .contentTypeOptions(Customizer.withDefaults())
-                        .frameOptions(fo -> fo.deny())
-                        .cacheControl(Customizer.withDefaults()))
+        http.csrf(AbstractHttpConfigurer::disable)
+            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .headers(h -> h
+                    .contentTypeOptions(Customizer.withDefaults())
+                    .frameOptions(fo -> fo.deny())
+                    .cacheControl(Customizer.withDefaults()));
+
+        if (securityEnabled) {
+            ApiKeyAuthFilter filter = new ApiKeyAuthFilter(apiKey, objectMapper);
+            http.addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .anyRequest().authenticated())
-                .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .build();
+                        .anyRequest().authenticated());
+        } else {
+            http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+        }
+
+        return http.build();
     }
 }

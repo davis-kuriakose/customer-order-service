@@ -51,6 +51,7 @@ services:
       DB_USERNAME: catalog_user
       DB_PASSWORD: ${CATALOG_DB_PASSWORD:-catalog_pass}
       APP_API_KEY: ${CATALOG_API_KEY:-internal-catalog-key}
+      APP_SECURITY_ENABLED: ${APP_SECURITY_ENABLED:-false}
     depends_on:
       catalog-db:
         condition: service_healthy
@@ -77,6 +78,7 @@ services:
       APP_API_KEY: ${APP_API_KEY:-dev-api-key}
       CATALOG_SERVICE_URL: http://catalog-service:8081
       CATALOG_API_KEY: ${CATALOG_API_KEY:-internal-catalog-key}
+      APP_SECURITY_ENABLED: ${APP_SECURITY_ENABLED:-false}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
     depends_on:
       order-db:
