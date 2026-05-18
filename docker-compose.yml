@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: order_db
       POSTGRES_USER: order_user
-      POSTGRES_PASSWORD: order_pass
+      POSTGRES_PASSWORD: ${ORDER_DB_PASSWORD:-order_pass}
     ports:
       - "5432:5432"
     volumes:
@@ -24,7 +24,7 @@ services:
     environment:
       POSTGRES_DB: catalog_db
       POSTGRES_USER: catalog_user
-      POSTGRES_PASSWORD: catalog_pass
+      POSTGRES_PASSWORD: ${CATALOG_DB_PASSWORD:-catalog_pass}
     ports:
       - "5433:5433"
     command: -p 5433
@@ -49,7 +49,7 @@ services:
       DB_PORT: 5433
       DB_NAME: catalog_db
       DB_USERNAME: catalog_user
-      DB_PASSWORD: catalog_pass
+      DB_PASSWORD: ${CATALOG_DB_PASSWORD:-catalog_pass}
       APP_API_KEY: ${CATALOG_API_KEY:-internal-catalog-key}
     depends_on:
       catalog-db:
@@ -73,7 +73,7 @@ services:
       DB_PORT: 5432
       DB_NAME: order_db
       DB_USERNAME: order_user
-      DB_PASSWORD: order_pass
+      DB_PASSWORD: ${ORDER_DB_PASSWORD:-order_pass}
       APP_API_KEY: ${APP_API_KEY:-dev-api-key}
       CATALOG_SERVICE_URL: http://catalog-service:8081
       CATALOG_API_KEY: ${CATALOG_API_KEY:-internal-catalog-key}

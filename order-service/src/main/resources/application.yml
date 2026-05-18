@@ -63,9 +63,9 @@ resilience4j:
 # Production: set SWAGGER_ENABLED=false to remove the API surface from public view.
 springdoc:
   swagger-ui:
-    enabled: ${SWAGGER_ENABLED:true}
+    enabled: ${SWAGGER_ENABLED:false}
   api-docs:
-    enabled: ${SWAGGER_ENABLED:true}
+    enabled: ${SWAGGER_ENABLED:false}
 
 management:
   endpoints:

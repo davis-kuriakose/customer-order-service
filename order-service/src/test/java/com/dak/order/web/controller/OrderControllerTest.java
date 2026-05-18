@@ -273,4 +273,26 @@ class OrderControllerTest {
                                  "\"paymentMethodType\":\"INVOICE\"}"))
                 .andExpect(status().isConflict());
     }
+
+    @Test
+    void createOrder_returns400_whenIdempotencyKeyHasInvalidCharacters() throws Exception {
+        mockMvc.perform(post("/customer-orders")
+                        .with(csrf())
+                        .header("Idempotency-Key", "key with spaces")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"category\":\"B2B\",\"customerId\":\"c\",\"siteId\":\"s\"," +
+                                 "\"orderItems\":[{\"productOfferingId\":\"po-1\",\"quantity\":1}]," +
+                                 "\"paymentMethodType\":\"INVOICE\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void response_containsSecurityHeaders() throws Exception {
+        when(orderUseCase.listOrders(isNull(), anyInt(), anyInt()))
+                .thenReturn(new PagedOrders(List.of(), 0L));
+
+        mockMvc.perform(get("/customer-orders"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string("X-Frame-Options", "DENY"));
+    }
 }

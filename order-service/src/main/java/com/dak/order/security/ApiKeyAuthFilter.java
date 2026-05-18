@@ -40,8 +40,10 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String uri = request.getRequestURI();
-        // Actuator and OpenAPI/Swagger endpoints are exempt from API key authentication.
-        return uri.startsWith("/actuator/")
+        // Only the two health/info actuator endpoints are exempt — matches SecurityConfig.permitAll() exactly.
+        // Wildcard /actuator/** would silently expose any newly enabled endpoint (env, beans, metrics) without auth.
+        return uri.equals("/actuator/health")
+                || uri.equals("/actuator/info")
                 || uri.startsWith("/swagger-ui")
                 || uri.startsWith("/v3/api-docs");
     }

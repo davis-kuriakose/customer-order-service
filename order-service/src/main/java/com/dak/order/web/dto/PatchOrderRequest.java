@@ -2,15 +2,17 @@ package com.dak.order.web.dto;
 
 import com.dak.order.domain.model.OrderCategory;
 import com.dak.order.domain.model.PaymentMethodType;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
 public record PatchOrderRequest(
-        String targetStateName,
+        @Size(max = 50)  String targetStateName,
         OrderCategory category,
-        String customerId,
-        String siteId,
-        List<OrderItemRequest> orderItems,
+        @Size(max = 100) String customerId,
+        @Size(max = 100) String siteId,
+        @Valid @Size(max = 50) List<OrderItemRequest> orderItems,
         PaymentMethodType paymentMethodType,
-        String paymentMethodIban
+        @Size(max = 34)  String paymentMethodIban
 ) {}

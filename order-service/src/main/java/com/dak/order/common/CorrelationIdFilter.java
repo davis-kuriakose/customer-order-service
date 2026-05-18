@@ -10,18 +10,22 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Component
 public class CorrelationIdFilter extends OncePerRequestFilter {
 
     private static final String HEADER = "X-Correlation-ID";
     private static final String MDC_KEY = "correlationId";
+    // Accepts only safe characters (alphanumeric + hyphen, max 64 chars).
+    // Rejects anything else to prevent log-injection via newlines or shell-special chars.
+    private static final Pattern SAFE_ID = Pattern.compile("[a-zA-Z0-9\\-]{1,64}");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws IOException, ServletException {
         String correlationId = request.getHeader(HEADER);
-        if (correlationId == null || correlationId.isBlank()) {
+        if (correlationId == null || !SAFE_ID.matcher(correlationId).matches()) {
             correlationId = UUID.randomUUID().toString();
         }
         MDC.put(MDC_KEY, correlationId);

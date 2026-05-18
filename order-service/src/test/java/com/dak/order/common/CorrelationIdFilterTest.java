@@ -44,4 +44,30 @@ class CorrelationIdFilterTest {
 
         assertThat(MDC.get("correlationId")).as("MDC must be cleared after request").isNull();
     }
+
+    @Test
+    void logInjectionAttempt_isRejectedAndReplacedWithUuid() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        // Newline + crafted log line — a classic log-injection payload
+        request.addHeader("X-Correlation-ID", "id\nINFO injected-log-line");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        String returned = response.getHeader("X-Correlation-ID");
+        assertThat(returned).doesNotContain("\n");
+        assertThat(returned).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+    }
+
+    @Test
+    void oversizedCorrelationId_isRejectedAndReplacedWithUuid() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("X-Correlation-ID", "a".repeat(65)); // exceeds 64-char limit
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        String returned = response.getHeader("X-Correlation-ID");
+        assertThat(returned).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+    }
 }

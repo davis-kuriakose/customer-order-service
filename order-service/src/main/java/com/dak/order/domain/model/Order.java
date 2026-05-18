@@ -146,7 +146,8 @@ public final class Order {
         public Builder category(OrderCategory category)  { this.category = category;       return this; }
         public Builder customer(Customer customer)       { this.customer = customer;       return this; }
         public Builder site(Site site)                   { this.site = site;               return this; }
-        public Builder orderItems(List<OrderItem> items) { this.orderItems = items;        return this; }
+        // Defensive copy: callers cannot mutate the list after passing it to the builder.
+        public Builder orderItems(List<OrderItem> items) { this.orderItems = items != null ? List.copyOf(items) : null; return this; }
         public Builder paymentMethod(PaymentMethod pm)   { this.paymentMethod = pm;        return this; }
         public Builder createdAt(Instant createdAt)      { this.createdAt = createdAt;     return this; }
         public Builder updatedAt(Instant updatedAt)      { this.updatedAt = updatedAt;     return this; }

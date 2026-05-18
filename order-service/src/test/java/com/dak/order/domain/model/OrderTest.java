@@ -149,6 +149,19 @@ class OrderTest {
         assertThat(original.getState()).isInstanceOf(DraftState.class); // original unchanged
     }
 
+    @Test
+    void toBuilder_sourceListMutation_doesNotAffectBuiltOrder() {
+        // Builder.orderItems() must defensive-copy so that mutating the source list
+        // after calling toBuilder() cannot corrupt the new Order's items.
+        Order original = Order.create(aCreateCommand());
+        Order.Builder builder = original.toBuilder();
+        // Verify the built Order's items are sealed — getOrderItems() returns an unmodifiable view
+        Order rebuilt = builder.build();
+        assertThat(rebuilt.getOrderItems()).hasSize(1);
+        assertThatThrownBy(() -> rebuilt.getOrderItems().add(new OrderItem("po-extra", 1)))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private static CreateOrderCommand aCreateCommand() {

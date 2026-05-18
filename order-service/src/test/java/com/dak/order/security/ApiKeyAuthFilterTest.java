@@ -76,4 +76,19 @@ class ApiKeyAuthFilterTest {
 
         assertThat(chain.getRequest()).as("filter chain was invoked for swagger").isNotNull();
     }
+
+    @Test
+    void nonExemptActuatorPath_requiresApiKey() throws Exception {
+        // /actuator/metrics is not in the exempt list — a missing key must be rejected.
+        // This guards against the shouldNotFilter wildcard /actuator/** being reintroduced.
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRequestURI("/actuator/metrics");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(chain.getRequest()).as("filter chain must NOT be invoked without a key").isNull();
+        assertThat(response.getStatus()).isEqualTo(401);
+    }
 }

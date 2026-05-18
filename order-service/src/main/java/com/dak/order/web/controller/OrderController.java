@@ -26,6 +26,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -47,6 +49,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 
 @Tag(name = "Orders", description = "Customer order lifecycle management")
@@ -61,6 +65,10 @@ public class OrderController {
     private final OrderWebMapper orderWebMapper;
     private final IdempotencyService idempotencyService;
     private final ObjectMapper objectMapper;
+    // Per-key lock: serialises concurrent requests for the same idempotency key so that
+    // check() and createOrder() are atomic from the caller's perspective.
+    // Single-instance guard only — replace with a distributed lock (e.g. Redis SETNX) for multi-node.
+    private final ConcurrentHashMap<String, ReentrantLock> idempotencyLocks = new ConcurrentHashMap<>();
 
     public OrderController(OrderUseCase orderUseCase, OrderWebMapper orderWebMapper,
                            IdempotencyService idempotencyService, ObjectMapper objectMapper) {
@@ -92,32 +100,43 @@ public class OrderController {
     })
     @PostMapping
     public ResponseEntity<OrderResponse> createOrder(
-            @Parameter(description = "Client-generated unique key for idempotent retries (UUID recommended)")
-            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Parameter(description = "Client-generated unique key for idempotent retries (UUID recommended). " +
+                                     "Allowed characters: alphanumeric, hyphen, underscore. Max 255 chars.")
+            @RequestHeader(value = "Idempotency-Key", required = false)
+            @Size(max = 255) @Pattern(regexp = "[\\w\\-]+") String idempotencyKey,
             @Valid @RequestBody CreateOrderRequest request) {
 
-        String requestHash = idempotencyKey != null ? idempotencyService.computeHash(request) : null;
-
         if (idempotencyKey != null) {
-            Optional<StoredResponse> replay = idempotencyService.check(idempotencyKey, requestHash);
-            if (replay.isPresent()) {
-                return buildReplayResponse(replay.get());
+            // Lock per key: prevents two concurrent identical requests from both passing check() and
+            // creating duplicate orders. check→create→store is serialised for a given idempotency key.
+            ReentrantLock lock = idempotencyLocks.computeIfAbsent(idempotencyKey, k -> new ReentrantLock());
+            lock.lock();
+            try {
+                String requestHash = idempotencyService.computeHash(request);
+                Optional<StoredResponse> replay = idempotencyService.check(idempotencyKey, requestHash);
+                if (replay.isPresent()) {
+                    return buildReplayResponse(replay.get());
+                }
+
+                CreateOrderCommand command = orderWebMapper.toCommand(request);
+                Order order = orderUseCase.createOrder(command);
+                OrderResponse response = orderWebMapper.toResponse(order);
+
+                try {
+                    idempotencyService.store(idempotencyKey, requestHash, order.getId(), 201,
+                            objectMapper.writeValueAsString(response));
+                } catch (JsonProcessingException e) {
+                    log.warn("Failed to store idempotency result for key {}", idempotencyKey, e);
+                }
+                return ResponseEntity.created(URI.create("/customer-orders/" + response.id())).body(response);
+            } finally {
+                lock.unlock();
             }
         }
 
         CreateOrderCommand command = orderWebMapper.toCommand(request);
         Order order = orderUseCase.createOrder(command);
         OrderResponse response = orderWebMapper.toResponse(order);
-
-        if (idempotencyKey != null) {
-            try {
-                idempotencyService.store(idempotencyKey, requestHash, order.getId(), 201,
-                        objectMapper.writeValueAsString(response));
-            } catch (JsonProcessingException e) {
-                log.warn("Failed to store idempotency result for key {}", idempotencyKey, e);
-            }
-        }
-
         return ResponseEntity.created(URI.create("/customer-orders/" + response.id())).body(response);
     }
 
@@ -204,7 +223,7 @@ public class OrderController {
     public OrderResponse patchOrder(
             @Parameter(description = "Order UUID", required = true)
             @PathVariable UUID id,
-            @RequestBody PatchOrderRequest request) {
+            @Valid @RequestBody PatchOrderRequest request) {
         PatchOrderCommand command = orderWebMapper.toPatchCommand(request);
         return orderWebMapper.toResponse(orderUseCase.patchOrder(id, command));
     }

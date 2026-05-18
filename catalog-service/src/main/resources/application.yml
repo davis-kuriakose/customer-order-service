@@ -44,9 +44,9 @@ app:
 # TASK-26: see order-service application.yml for explanation.
 springdoc:
   swagger-ui:
-    enabled: ${SWAGGER_ENABLED:true}
+    enabled: ${SWAGGER_ENABLED:false}
   api-docs:
-    enabled: ${SWAGGER_ENABLED:true}
+    enabled: ${SWAGGER_ENABLED:false}
 
 management:
   endpoints:

@@ -35,8 +35,10 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        // Actuator health/info endpoints are exempt from API key authentication.
-        return request.getRequestURI().startsWith("/actuator/");
+        // Only the two health/info endpoints are exempt — mirrors SecurityConfig.permitAll() exactly.
+        // A wildcard /actuator/** would silently expose any newly enabled endpoint without auth.
+        String uri = request.getRequestURI();
+        return uri.equals("/actuator/health") || uri.equals("/actuator/info");
     }
 
     @Override
