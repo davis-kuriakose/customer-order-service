@@ -30,7 +30,9 @@ public class OrderService implements OrderUseCase {
     }
 
     @Override
-    @Transactional
+    // No @Transactional here: catalog validation (N blocking HTTP calls) must complete
+    // before a DB connection is checked out of the pool. Spring Data JPA's own
+    // @Transactional on orderRepositoryPort.create() provides the write transaction.
     public Order createOrder(CreateOrderCommand command) {
         catalogPort.validateOfferings(
                 command.orderItems().stream().map(item -> item.productOfferingId()).toList());
@@ -53,7 +55,9 @@ public class OrderService implements OrderUseCase {
     }
 
     @Override
-    @Transactional
+    // No @Transactional here: catalog validation runs between the findById read and the
+    // save write, so keeping a single outer transaction would hold a DB connection across
+    // the HTTP call. Spring Data JPA handles each repository call in its own transaction.
     public Order patchOrder(UUID id, PatchOrderCommand command) {
         Order order = orderRepositoryPort.findById(id)
                 .orElseThrow(() -> new OrderNotFoundException(id));

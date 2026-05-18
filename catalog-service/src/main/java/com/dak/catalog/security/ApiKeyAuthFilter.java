@@ -7,13 +7,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -21,7 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Collections;
 
-@Component
+// Not a @Component — see order-service ApiKeyAuthFilter for the full explanation.
 public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
     private static final String API_KEY_HEADER = "X-API-Key";
@@ -30,7 +28,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
     private final String expectedApiKey;
     private final ObjectMapper objectMapper;
 
-    public ApiKeyAuthFilter(@Value("${app.api-key}") String expectedApiKey, ObjectMapper objectMapper) {
+    public ApiKeyAuthFilter(String expectedApiKey, ObjectMapper objectMapper) {
         this.expectedApiKey = expectedApiKey;
         this.objectMapper = objectMapper;
     }

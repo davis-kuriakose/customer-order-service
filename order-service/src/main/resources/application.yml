@@ -53,10 +53,10 @@ resilience4j:
         register-health-indicator: true
         ignore-exceptions:
           - com.dak.order.domain.exception.ProductOfferingNotFoundException
-  timelimiter:
-    instances:
-      catalog:
-        timeout-duration: 2s
+  # timelimiter block removed: @TimeLimiter annotation only works on CompletableFuture-returning
+  # methods. CatalogRestAdapter.validateOfferings() is synchronous (void), so this config was
+  # inert. The active 2-second deadline is enforced by JdkClientHttpRequestFactory.setReadTimeout()
+  # in CatalogClientConfig.
 
 # TASK-26: Swagger UI controlled by SWAGGER_ENABLED env var.
 # Default: true (on) — works out of the box for development and testing.
