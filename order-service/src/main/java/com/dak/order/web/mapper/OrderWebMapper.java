@@ -22,9 +22,9 @@ public interface OrderWebMapper {
 
     CreateOrderCommand toCommand(CreateOrderRequest request);
 
-    // paymentMethodType + paymentMethodIban are two source fields that combine into one
-    // PaymentMethod value object — @Named method handles this cleanly instead of an expression.
-    @Mapping(target = "paymentMethod", qualifiedByName = "buildPaymentMethod")
+    // source = "request" passes the whole source parameter to buildPaymentMethod — required in
+    // MapStruct 1.6.x when a @Named method takes the full source object rather than a single property.
+    @Mapping(target = "paymentMethod", source = "request", qualifiedByName = "buildPaymentMethod")
     PatchOrderCommand toPatchCommand(PatchOrderRequest request);
 
     OrderItem toOrderItem(OrderItemRequest request);
@@ -42,7 +42,7 @@ public interface OrderWebMapper {
     OrderItemResponse toItemResponse(OrderItem item);
 
     // Combines paymentMethodType + paymentMethodIban into a PaymentMethod value object.
-    // Returns null when no payment method type is provided (patch semantics — no update).
+    // source = "request" in @Mapping passes the whole source parameter — required in MapStruct 1.6.x.
     @Named("buildPaymentMethod")
     default PaymentMethod buildPaymentMethod(PatchOrderRequest request) {
         if (request.paymentMethodType() == null) return null;

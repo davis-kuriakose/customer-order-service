@@ -6,9 +6,7 @@ import com.dak.order.domain.port.outbound.IdempotencyRepositoryPort.StoredRespon
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
@@ -25,11 +23,16 @@ class IdempotencyServiceTest {
     @Mock
     private IdempotencyRepositoryPort idempotencyRepository;
 
-    @Spy
-    private ObjectMapper objectMapper;
+    // Real ObjectMapper instance — Jackson's ObjectMapper is not designed to be spied upon
+    // (Byte Buddy cannot subclass it reliably on Java 24+ without experimental mode).
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @InjectMocks
     private IdempotencyService idempotencyService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        idempotencyService = new IdempotencyService(idempotencyRepository, objectMapper);
+    }
 
     @Test
     void computeHash_returnsSha256HexString_of64Chars() {

@@ -18,7 +18,9 @@ public interface OrderPersistenceMapper {
     @Mapping(target = "category",      source = "category",   qualifiedByName = "categoryFromString")
     @Mapping(target = "customer",      source = "customerId", qualifiedByName = "customerFromId")
     @Mapping(target = "site",          source = "siteId",     qualifiedByName = "siteFromId")
-    @Mapping(target = "paymentMethod", qualifiedByName = "paymentMethodFromEntity")
+    // source = "entity" passes the whole source parameter to paymentMethodFromEntity — MapStruct 1.6.x
+    // requires the parameter name explicitly when a @Named method takes the full source object.
+    @Mapping(target = "paymentMethod", source = "entity",     qualifiedByName = "paymentMethodFromEntity")
     Order toDomain(OrderJpaEntity entity);
 
     // ── Domain → Entity (update in-place) ────────────────────────────────────
@@ -70,6 +72,7 @@ public interface OrderPersistenceMapper {
     }
 
     // Takes the full entity because PaymentMethod requires two fields (type + iban).
+    // source = "entity" in @Mapping passes the whole source parameter — required in MapStruct 1.6.x.
     @Named("paymentMethodFromEntity")
     default PaymentMethod paymentMethodFromEntity(OrderJpaEntity entity) {
         return new PaymentMethod(

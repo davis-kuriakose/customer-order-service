@@ -18,6 +18,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -30,14 +32,17 @@ class CatalogRestAdapterTest {
     @InjectMocks
     private CatalogRestAdapter adapter;
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private void mockGetChain(Runnable onRetrieve) {
         RestClient.RequestHeadersUriSpec<?> uriSpec = mock(RestClient.RequestHeadersUriSpec.class);
         RestClient.RequestHeadersSpec<?> headersSpec = mock(RestClient.RequestHeadersSpec.class);
         RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
 
         when(restClient.get()).thenReturn((RestClient.RequestHeadersUriSpec) uriSpec);
-        when(uriSpec.uri(any(String.class), any(Object.class))).thenReturn((RestClient.RequestHeadersSpec) headersSpec);
+        // doReturn avoids the wildcard-capture generics constraint that thenReturn cannot satisfy:
+        // OngoingStubbing<capture#N-of ?> rejects concrete types via when().thenReturn().
+        doReturn(headersSpec).when((RestClient.RequestHeadersUriSpec) uriSpec)
+                .uri(anyString(), any(Object.class));
         when(headersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.toBodilessEntity()).thenAnswer(inv -> { onRetrieve.run(); return null; });
     }
