@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Customer Order Service — Test Report</title>
+<style>
+  body{font-family:monospace;background:#1e1e1e;color:#d4d4d4;padding:24px;}
+  h1{color:#4ec9b0;} h2{color:#9cdcfe;border-bottom:1px solid #333;padding-bottom:6px;}
+  .summary{display:flex;gap:32px;margin:16px 0;}
+  .badge{padding:8px 20px;border-radius:6px;font-size:1.2em;font-weight:bold;}
+  .pass-badge{background:#1e4d2b;color:#4ec994;}
+  .fail-badge{background:#4d1e1e;color:#f44747;}
+  .warn-badge{background:#4d3e1e;color:#dcdcaa;}
+  table{border-collapse:collapse;width:100%;margin-top:12px;}
+  th{background:#252526;color:#9cdcfe;text-align:left;padding:8px 12px;}
+  td{padding:7px 12px;border-bottom:1px solid #2d2d2d;font-size:0.9em;}
+  tr:hover td{background:#2a2d2e;}
+  .PASS td:first-child{color:#4ec994;}
+  .FAIL td:first-child{color:#f44747;}
+  .WARN td:first-child{color:#dcdcaa;}
+  .PERF td:first-child{color:#c586c0;}
+  .footer{margin-top:32px;color:#6b6b6b;font-size:0.8em;}
+</style>
+</head>
+<body>
+<h1>Customer Order Service — Verification Report</h1>
+<p>Generated: 2026-05-18 15:18:56 &nbsp;|&nbsp; order-service:8080 &nbsp;|&nbsp; catalog-service:8081</p>
+<div class='summary'>
+  <div class='badge pass-badge'>✓ PASS: 91</div>
+  <div class='badge fail-badge'>✗ FAIL: 0</div>
+  <div class='badge warn-badge'>⚠ WARN: 1</div>
+</div>
+<h2>Detailed Results</h2>
+<table><tr><th>Status</th><th>Test</th><th>Detail</th></tr>
+<tr class='PASS'><td>PASS</td><td>Service localhost:8080 is reachable</td><td></td></tr>
+<tr class='PASS'><td>PASS</td><td>Service localhost:8081 is reachable</td><td></td></tr>
+<tr class='PASS'><td>PASS</td><td>order-service /actuator/health</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>order-service health status=UP</td><td>.status = "UP"</td></tr>
+<tr class='PASS'><td>PASS</td><td>order-service /actuator/info accessible</td><td></td></tr>
+<tr class='PASS'><td>PASS</td><td>catalog-service /actuator/health</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>catalog-service health status=UP</td><td>.status = "UP"</td></tr>
+<tr class='PASS'><td>PASS</td><td>catalog-service /actuator/info accessible</td><td></td></tr>
+<tr class='PASS'><td>PASS</td><td>Order list — no API key → 401</td><td>HTTP 401</td></tr>
+<tr class='PASS'><td>PASS</td><td>Order list — wrong API key → 401</td><td>HTTP 401</td></tr>
+<tr class='PASS'><td>PASS</td><td>Catalog list — no API key → 401</td><td>HTTP 401</td></tr>
+<tr class='PASS'><td>PASS</td><td>Catalog list — wrong API key → 401</td><td>HTTP 401</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings — returns 3 offerings</td><td></td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings/po-1 — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings/po-1 — id matches</td><td></td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings/po-1 — price present</td><td>value present</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings/po-1 — name present</td><td>value present</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings/po-2 — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings/po-2 — id matches</td><td></td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings/po-2 — price present</td><td>value present</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings/po-2 — name present</td><td>value present</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings/po-3 — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings/po-3 — id matches</td><td></td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings/po-3 — price present</td><td>value present</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings/po-3 — name present</td><td>value present</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings/po-9999 — 404</td><td>HTTP 404</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST /customer-orders B2B — 201</td><td>HTTP 201</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST /customer-orders B2B — id in response</td><td>value present</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST /customer-orders B2B — state=DRAFT</td><td>.state = "DRAFT"</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST /customer-orders B2B — category=B2B</td><td>.category = "B2B"</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST /customer-orders B2B — customerId</td><td>.customerId = "cust-001"</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST /customer-orders B2C — 201</td><td>HTTP 201</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST /customer-orders B2C — id in response</td><td>value present</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST /customer-orders B2C — state=DRAFT</td><td>.state = "DRAFT"</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST /customer-orders B2C — category=B2C</td><td>.category = "B2C"</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST /customer-orders B2C — 2 items</td><td>.orderItems | length = "2"</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST missing customerId → 400</td><td>HTTP 400</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST empty orderItems → 400</td><td>HTTP 400</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST missing category → 400</td><td>HTTP 400</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST quantity=0 → 400</td><td>HTTP 400</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST missing paymentMethodType → 400</td><td>HTTP 400</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /customer-orders/70c93f81-def3-4082-8e85-4a144f983629 — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET order — id matches</td><td>.id = "70c93f81-def3-4082-8e85-4a144f983629"</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET order — state=DRAFT</td><td>.state = "DRAFT"</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET non-existent order → 404</td><td>HTTP 404</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /customer-orders — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /customer-orders — total=52 (≥2)</td><td></td></tr>
+<tr class='PASS'><td>PASS</td><td>GET orders?category=B2B — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET orders?category=B2B — has results</td><td>value present</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET orders?category=B2C — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET orders?limit=1 — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET orders?limit=1 — returns ≤1 item</td><td></td></tr>
+<tr class='PASS'><td>PASS</td><td>GET orders?limit=999 → 400</td><td>HTTP 400</td></tr>
+<tr class='PASS'><td>PASS</td><td>PATCH order — update customerId — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>PATCH order — customerId updated</td><td>.customerId = "cust-updated"</td></tr>
+<tr class='PASS'><td>PASS</td><td>PATCH order — state still DRAFT</td><td>.state = "DRAFT"</td></tr>
+<tr class='PASS'><td>PASS</td><td>PATCH order — update orderItems — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>PATCH order — orderItems updated (1 item)</td><td>.orderItems | length = "1"</td></tr>
+<tr class='PASS'><td>PASS</td><td>PATCH wrong Content-Type → 415 (unsupported)</td><td></td></tr>
+<tr class='PASS'><td>PASS</td><td>State test — create order — 201</td><td>HTTP 201</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: DRAFT → PREVIEW — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: now PREVIEW</td><td>.state = "PREVIEW"</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: PREVIEW field patch — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: PREVIEW siteId updated</td><td>.siteId = "site-preview-updated"</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: PREVIEW → DRAFT — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: back to DRAFT</td><td>.state = "DRAFT"</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: DRAFT → PREVIEW (2nd) — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: PREVIEW → SUBMITTED — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: now SUBMITTED</td><td>.state = "SUBMITTED"</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: SUBMITTED payload patch rejected → 422</td><td>HTTP 422</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: SUBMITTED → PREVIEW invalid → 422</td><td>HTTP 422</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: SUBMITTED → CONFIRMED — 200</td><td>HTTP 200</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: now CONFIRMED</td><td>.state = "CONFIRMED"</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: CONFIRMED all patches rejected → 422</td><td>HTTP 422</td></tr>
+<tr class='PASS'><td>PASS</td><td>State: CONFIRMED → DRAFT invalid → 422</td><td>HTTP 422</td></tr>
+<tr class='PASS'><td>PASS</td><td>Idempotency first call — 201</td><td>HTTP 201</td></tr>
+<tr class='PASS'><td>PASS</td><td>Idempotency replay — same order ID returned</td><td></td></tr>
+<tr class='PASS'><td>PASS</td><td>Idempotency conflict — first call 201</td><td>HTTP 201</td></tr>
+<tr class='PASS'><td>PASS</td><td>Idempotency conflict — different payload → 409</td><td>HTTP 409</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /v3/api-docs — 2 paths documented</td><td></td></tr>
+<tr class='PASS'><td>PASS</td><td>OpenAPI title present</td><td>value present</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /swagger-ui/index.html — accessible</td><td></td></tr>
+<tr class='PERF'><td>PERF</td><td>GET /product-offerings (catalog)</td><td>success=100 errors=0 avg=18ms median=15ms p95=49ms max=56ms</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /product-offerings (catalog) — avg=18ms p95=49ms</td><td></td></tr>
+<tr class='PERF'><td>PERF</td><td>GET /actuator/health (order-service)</td><td>success=100 errors=0 avg=8ms median=6ms p95=20ms max=41ms</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /actuator/health (order-service) — avg=8ms p95=20ms</td><td></td></tr>
+<tr class='PERF'><td>PERF</td><td>GET /customer-orders (list)</td><td>success=100 errors=0 avg=19ms median=18ms p95=36ms max=44ms</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /customer-orders (list) — avg=19ms p95=36ms</td><td></td></tr>
+<tr class='PERF'><td>PERF</td><td>GET /customer-orders/:id (single)</td><td>success=100 errors=0 avg=7ms median=7ms p95=12ms max=20ms</td></tr>
+<tr class='PASS'><td>PASS</td><td>GET /customer-orders/:id (single) — avg=7ms p95=12ms</td><td></td></tr>
+<tr class='PERF'><td>PERF</td><td>POST /customer-orders (write)</td><td>success=20 errors=0 avg=20ms median=20ms p95=29ms max=29ms</td></tr>
+<tr class='PASS'><td>PASS</td><td>POST /customer-orders (write) — avg=20ms p95=29ms</td><td></td></tr>
+<tr class='PASS'><td>PASS</td><td>Container catalog-db</td><td>Up 19 minutes (healthy)   5432/tcp (healthy)</td></tr>
+<tr class='PASS'><td>PASS</td><td>Container catalog-service</td><td>Up 19 minutes (healthy)   0.0.0.0:8081-&gt;8081/tcp (healthy)</td></tr>
+<tr class='PASS'><td>PASS</td><td>Container order-db</td><td>Up 19 minutes (healthy)   0.0.0.0:5432-&gt;5432/tcp (healthy)</td></tr>
+<tr class='WARN'><td>WARN</td><td>Container order-service</td><td>Up 19 minutes             0.0.0.0:8080-&gt;8080/tcp — no healthcheck or starting</td></tr>
+</table>
+<div class='footer'>Script: test-and-perf.sh &nbsp;|&nbsp; Concurrency: 10 &nbsp;|&nbsp; Perf requests: 100</div>
+</body></html>

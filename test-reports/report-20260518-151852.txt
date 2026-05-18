@@ -1,0 +1,106 @@
+Customer Order Service — Verification Report
+Generated: 2026-05-18 15:18:56
+Services:  order-service@8080  catalog-service@8081
+============================================================
+
+SUMMARY: PASS=91  FAIL=0  WARN=1  TOTAL=92
+
+DETAILED RESULTS
+------------------------------------------------------------
+PASS    Service localhost:8080 is reachable                           
+PASS    Service localhost:8081 is reachable                           
+PASS    order-service /actuator/health                                HTTP 200
+PASS    order-service health status=UP                                .status = "UP"
+PASS    order-service /actuator/info accessible                       
+PASS    catalog-service /actuator/health                              HTTP 200
+PASS    catalog-service health status=UP                              .status = "UP"
+PASS    catalog-service /actuator/info accessible                     
+PASS    Order list — no API key → 401                             HTTP 401
+PASS    Order list — wrong API key → 401                          HTTP 401
+PASS    Catalog list — no API key → 401                           HTTP 401
+PASS    Catalog list — wrong API key → 401                        HTTP 401
+PASS    GET /product-offerings — 200                                HTTP 200
+PASS    GET /product-offerings — returns 3 offerings                
+PASS    GET /product-offerings/po-1 — 200                           HTTP 200
+PASS    GET /product-offerings/po-1 — id matches                    
+PASS    GET /product-offerings/po-1 — price present                 value present
+PASS    GET /product-offerings/po-1 — name present                  value present
+PASS    GET /product-offerings/po-2 — 200                           HTTP 200
+PASS    GET /product-offerings/po-2 — id matches                    
+PASS    GET /product-offerings/po-2 — price present                 value present
+PASS    GET /product-offerings/po-2 — name present                  value present
+PASS    GET /product-offerings/po-3 — 200                           HTTP 200
+PASS    GET /product-offerings/po-3 — id matches                    
+PASS    GET /product-offerings/po-3 — price present                 value present
+PASS    GET /product-offerings/po-3 — name present                  value present
+PASS    GET /product-offerings/po-9999 — 404                        HTTP 404
+PASS    POST /customer-orders B2B — 201                             HTTP 201
+PASS    POST /customer-orders B2B — id in response                  value present
+PASS    POST /customer-orders B2B — state=DRAFT                     .state = "DRAFT"
+PASS    POST /customer-orders B2B — category=B2B                    .category = "B2B"
+PASS    POST /customer-orders B2B — customerId                      .customerId = "cust-001"
+PASS    POST /customer-orders B2C — 201                             HTTP 201
+PASS    POST /customer-orders B2C — id in response                  value present
+PASS    POST /customer-orders B2C — state=DRAFT                     .state = "DRAFT"
+PASS    POST /customer-orders B2C — category=B2C                    .category = "B2C"
+PASS    POST /customer-orders B2C — 2 items                         .orderItems | length = "2"
+PASS    POST missing customerId → 400                               HTTP 400
+PASS    POST empty orderItems → 400                                 HTTP 400
+PASS    POST missing category → 400                                 HTTP 400
+PASS    POST quantity=0 → 400                                       HTTP 400
+PASS    POST missing paymentMethodType → 400                        HTTP 400
+PASS    GET /customer-orders/70c93f81-def3-4082-8e85-4a144f983629 — 200  HTTP 200
+PASS    GET order — id matches                                      .id = "70c93f81-def3-4082-8e85-4a144f983629"
+PASS    GET order — state=DRAFT                                     .state = "DRAFT"
+PASS    GET non-existent order → 404                                HTTP 404
+PASS    GET /customer-orders — 200                                  HTTP 200
+PASS    GET /customer-orders — total=52 (≥2)                      
+PASS    GET orders?category=B2B — 200                               HTTP 200
+PASS    GET orders?category=B2B — has results                       value present
+PASS    GET orders?category=B2C — 200                               HTTP 200
+PASS    GET orders?limit=1 — 200                                    HTTP 200
+PASS    GET orders?limit=1 — returns ≤1 item                      
+PASS    GET orders?limit=999 → 400                                  HTTP 400
+PASS    PATCH order — update customerId — 200                     HTTP 200
+PASS    PATCH order — customerId updated                            .customerId = "cust-updated"
+PASS    PATCH order — state still DRAFT                             .state = "DRAFT"
+PASS    PATCH order — update orderItems — 200                     HTTP 200
+PASS    PATCH order — orderItems updated (1 item)                   .orderItems | length = "1"
+PASS    PATCH wrong Content-Type → 415 (unsupported)                
+PASS    State test — create order — 201                           HTTP 201
+PASS    State: DRAFT → PREVIEW — 200                              HTTP 200
+PASS    State: now PREVIEW                                            .state = "PREVIEW"
+PASS    State: PREVIEW field patch — 200                            HTTP 200
+PASS    State: PREVIEW siteId updated                                 .siteId = "site-preview-updated"
+PASS    State: PREVIEW → DRAFT — 200                              HTTP 200
+PASS    State: back to DRAFT                                          .state = "DRAFT"
+PASS    State: DRAFT → PREVIEW (2nd) — 200                        HTTP 200
+PASS    State: PREVIEW → SUBMITTED — 200                          HTTP 200
+PASS    State: now SUBMITTED                                          .state = "SUBMITTED"
+PASS    State: SUBMITTED payload patch rejected → 422               HTTP 422
+PASS    State: SUBMITTED → PREVIEW invalid → 422                  HTTP 422
+PASS    State: SUBMITTED → CONFIRMED — 200                        HTTP 200
+PASS    State: now CONFIRMED                                          .state = "CONFIRMED"
+PASS    State: CONFIRMED all patches rejected → 422                 HTTP 422
+PASS    State: CONFIRMED → DRAFT invalid → 422                    HTTP 422
+PASS    Idempotency first call — 201                                HTTP 201
+PASS    Idempotency replay — same order ID returned                 
+PASS    Idempotency conflict — first call 201                       HTTP 201
+PASS    Idempotency conflict — different payload → 409            HTTP 409
+PASS    GET /v3/api-docs — 2 paths documented                       
+PASS    OpenAPI title present                                         value present
+PASS    GET /swagger-ui/index.html — accessible                     
+PERF    GET /product-offerings (catalog)                              success=100 errors=0 avg=18ms median=15ms p95=49ms max=56ms
+PASS    GET /product-offerings (catalog) — avg=18ms p95=49ms        
+PERF    GET /actuator/health (order-service)                          success=100 errors=0 avg=8ms median=6ms p95=20ms max=41ms
+PASS    GET /actuator/health (order-service) — avg=8ms p95=20ms     
+PERF    GET /customer-orders (list)                                   success=100 errors=0 avg=19ms median=18ms p95=36ms max=44ms
+PASS    GET /customer-orders (list) — avg=19ms p95=36ms             
+PERF    GET /customer-orders/:id (single)                             success=100 errors=0 avg=7ms median=7ms p95=12ms max=20ms
+PASS    GET /customer-orders/:id (single) — avg=7ms p95=12ms        
+PERF    POST /customer-orders (write)                                 success=20 errors=0 avg=20ms median=20ms p95=29ms max=29ms
+PASS    POST /customer-orders (write) — avg=20ms p95=29ms           
+PASS    Container catalog-db                                          Up 19 minutes (healthy)   5432/tcp (healthy)
+PASS    Container catalog-service                                     Up 19 minutes (healthy)   0.0.0.0:8081->8081/tcp (healthy)
+PASS    Container order-db                                            Up 19 minutes (healthy)   0.0.0.0:5432->5432/tcp (healthy)
+WARN    Container order-service                                       Up 19 minutes             0.0.0.0:8080->8080/tcp — no healthcheck or starting
