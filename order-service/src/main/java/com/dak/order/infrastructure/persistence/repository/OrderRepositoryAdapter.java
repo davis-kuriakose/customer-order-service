@@ -41,8 +41,12 @@ public class OrderRepositoryAdapter implements OrderRepositoryPort {
     public Order save(Order order) {
         // Load existing entity to preserve @Version — without it Hibernate cannot perform
         // optimistic-locking checks and would throw OptimisticLockException on every update.
+        // orElseThrow: the ID was already validated by OrderService.patchOrder — a missing
+        // entity here is a data integrity bug, not a recoverable condition. orElseGet would
+        // silently create a new entity and mask the bug.
         OrderJpaEntity entity = jpaRepository.findById(order.getId())
-                .orElseGet(OrderJpaEntity::new);
+                .orElseThrow(() -> new IllegalStateException(
+                        "Order " + order.getId() + " disappeared between read and update — data integrity error"));
         mapper.updateEntity(entity, order);
         syncItems(entity, order);
         return mapper.toDomain(jpaRepository.save(entity));

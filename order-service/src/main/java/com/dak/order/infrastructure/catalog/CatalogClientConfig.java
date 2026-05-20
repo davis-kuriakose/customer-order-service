@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.support.RestClientAdapter;
+import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
@@ -13,32 +15,39 @@ import java.time.Duration;
 @Configuration
 public class CatalogClientConfig {
 
+    /**
+     * Declarative HTTP client for the Catalog Service.
+     *
+     * All shared transport concerns are configured here — once — and apply automatically
+     * to every method on {@link CatalogHttpClient}:
+     *   - Base URL from environment
+     *   - X-API-Key authentication header
+     *   - Connection pooling via shared JDK HttpClient (keep-alive + HTTP/2)
+     *   - 2-second connect + read timeout
+     *   - X-Correlation-ID propagation from SLF4J MDC
+     *
+     * Adding new catalog endpoints: add a method to {@link CatalogHttpClient}.
+     * No changes here.
+     */
     @Bean
-    public RestClient catalogRestClient(
+    public CatalogHttpClient catalogHttpClient(
             @Value("${app.catalog.base-url}") String baseUrl,
             @Value("${app.catalog.api-key}") String apiKey) {
 
-        // Shared HttpClient with connection pooling (keep-alive) and HTTP/2 multiplexing.
-        // connectTimeout enforces the 2-second deadline for establishing the TCP connection.
-        // SimpleClientHttpRequestFactory (the previous default) opened a new TCP connection
-        // per request with no keep-alive — expensive under high request rates.
+        // Shared HttpClient: connection pooling with keep-alive and HTTP/2 multiplexing.
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(2))
                 .build();
 
-        // Per-request read timeout: each HTTP call to catalog-service is cancelled
-        // after 2 seconds if no response bytes arrive. This is the active deadline
-        // for catalog validation — not the Resilience4j timelimiter config block
-        // (which was removed because @TimeLimiter only applies to CompletableFuture methods).
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
         factory.setReadTimeout(Duration.ofSeconds(2));
 
-        return RestClient.builder()
+        RestClient restClient = RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(factory)
                 .defaultHeader("X-API-Key", apiKey)
                 .requestInterceptor((request, body, execution) -> {
-                    // Forward the active correlation ID so the catalog service logs share the same trace.
+                    // Propagate active correlation ID so catalog logs share the same trace.
                     String correlationId = MDC.get("correlationId");
                     if (correlationId != null) {
                         request.getHeaders().set("X-Correlation-ID", correlationId);
@@ -46,5 +55,10 @@ public class CatalogClientConfig {
                     return execution.execute(request, body);
                 })
                 .build();
+
+        return HttpServiceProxyFactory
+                .builderFor(RestClientAdapter.create(restClient))
+                .build()
+                .createClient(CatalogHttpClient.class);
     }
 }

@@ -8,13 +8,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
@@ -35,8 +38,14 @@ public class IdempotencyService {
     });
 
     // Per-key lock map — keeps the check→create→store sequence atomic for a given key.
+    // Caffeine cache with TTL + max-size prevents unbounded growth when callers use many
+    // unique idempotency keys. 5-minute access expiry is safe because order creation
+    // (catalog HTTP + DB write) completes well within that window.
     // Single-instance guard only; a distributed lock (e.g. Redis SETNX) is needed for multi-node.
-    private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+    private final Cache<String, ReentrantLock> locks = Caffeine.newBuilder()
+            .expireAfterAccess(Duration.ofMinutes(5))
+            .maximumSize(10_000)
+            .build();
 
     private final IdempotencyRepositoryPort idempotencyRepository;
     private final ObjectMapper objectMapper;
@@ -51,7 +60,7 @@ public class IdempotencyService {
      * for the same idempotency key cannot both pass {@link #check} and produce duplicates.
      */
     public <T> T withLock(String key, Supplier<T> action) {
-        ReentrantLock lock = locks.computeIfAbsent(key, k -> new ReentrantLock());
+        ReentrantLock lock = locks.get(key, k -> new ReentrantLock());
         lock.lock();
         try {
             return action.get();

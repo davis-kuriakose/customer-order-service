@@ -63,6 +63,19 @@ class OrderRepositoryAdapterTest {
     }
 
     @Test
+    void save_throwsIllegalStateException_whenEntityNotFound() {
+        // A missing entity during update is a data integrity bug — the ID was already
+        // validated by OrderService.patchOrder. orElseThrow surfaces it immediately.
+        UUID id = UUID.randomUUID();
+        Order order = buildOrder(id);
+        when(jpaRepository.findById(id)).thenReturn(java.util.Optional.empty());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> adapter.save(order))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(id.toString());
+    }
+
+    @Test
     void save_callsFindByIdFirst_toPreserveVersion() {
         UUID id = UUID.randomUUID();
         Order order = buildOrder(id);

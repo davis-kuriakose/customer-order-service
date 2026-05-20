@@ -429,6 +429,38 @@ Passwords were literal strings in `docker-compose.yml`. Changed to `${ORDER_DB_P
 
 ---
 
+## Phase 7 — Java-Architect Review (TASK-31)
+
+A second architectural review pass identified four additional production-readiness issues.
+
+### Fix 1 — `CatalogHttpExceptionMapper`: static utility → injectable `@Component`
+
+**Problem:** The mapper was a `final class` with a `static void execute(String, Runnable)` method. Two weaknesses: (1) `static` cannot be injected or mocked without PowerMock, making it harder to test and verify in isolation; (2) `Runnable` has no return type, so a future catalog endpoint that returns a value (e.g. `getOfferingDetails()`) would force adding an overload or a separate method.
+
+**Fix:** Changed to `@Component class` with `<T> T call(String resourceId, Callable<T> call)`. The generic `Callable<T>` handles both void endpoints (return `null`) and value-returning endpoints with a single method. Injected into `CatalogRestAdapter` via constructor. The retry interaction is preserved: `exceptionMapper.call()` is called in `validateWithMdc()` which is **outside** the `@Retry` scope — `@Retry` still sees raw Spring exceptions and retries correctly before the mapper translates them to domain exceptions.
+
+**Key architecture note:** Why not `RestClient.defaultStatusHandler()`? The HTTP client has no domain context — it cannot construct `ProductOfferingNotFoundException(offeringId)` because it only sees the URL, not the structured offering ID. Domain translation must happen where both the HTTP exception AND the resource identifier are available — i.e. in the adapter layer.
+
+### Fix 2 — `OrderRepositoryAdapter.save()`: silent `orElseGet` → explicit `orElseThrow`
+
+**Problem:** `jpaRepository.findById(order.getId()).orElseGet(OrderJpaEntity::new)` silently created a new blank entity if the ID was not found. Since `patchOrder` validates the order exists before calling `save()`, a missing entity at this point is a data integrity bug — a concurrent delete, a race condition, or a programming error. The silent fallback masked the bug and allowed corrupted state to be written.
+
+**Fix:** Changed to `orElseThrow(() -> new IllegalStateException("Order " + id + " disappeared between read and update"))`. Bugs surface immediately with a clear message rather than producing silent data corruption.
+
+### Fix 3 — `IdempotencyService.locks`: unbounded `ConcurrentHashMap` → Caffeine cache
+
+**Problem:** `ConcurrentHashMap<String, ReentrantLock>` never evicts entries. Under sustained load with many unique idempotency keys, the map grows without bound — a memory leak. Each entry is a `ReentrantLock` object that is never cleaned up after the lock is released.
+
+**Fix:** Replaced with a Caffeine `Cache<String, ReentrantLock>` (`expireAfterAccess(5m)`, `maximumSize(10_000)`). Caffeine evicts entries that have not been accessed for 5 minutes — safe because order creation completes in seconds. The `maximumSize` cap prevents unbounded growth under any load pattern. `locks.get(key, k -> new ReentrantLock())` replaces `computeIfAbsent` — same atomic semantics, automatic eviction.
+
+### Fix 4 — `ProductOffering`: no invariant validation → compact constructor
+
+**Problem:** `ProductOffering(String id, String name, BigDecimal price)` accepted null ID, null name, and null/negative price. This was inconsistent with the order-service domain where `OrderItem` and `PaymentMethod` records both validate invariants in their compact constructors. An anemic value object with no guards is not a proper domain model.
+
+**Fix:** Added a compact constructor validating: `id`/`name` not blank, `price` not null, `price` not negative. This is the same pattern as `OrderItem` (quantity ≥ 1) and `PaymentMethod` (IBAN required for DIRECT_DEBIT) — consistent enforcement at the value-object boundary.
+
+---
+
 ## Summary
 
 | Phase | Tasks | Focus |
@@ -439,5 +471,6 @@ Passwords were literal strings in `docker-compose.yml`. Changed to `${ORDER_DB_P
 | Cross-Cutting | TASK-14 to TASK-17 | Security filter, correlation ID, integration tests, documentation |
 | Performance | TASK-18 to TASK-28, TASK-VT1 | N+1 fix, connection pooling, transaction scope, virtual threads, indexes, caching |
 | Security Hardening | TASK-29 to TASK-30 | Filter registration, input validation, log injection, HTTP headers, race condition |
+| Architect Review | TASK-31 | Exception mapper refactor, save() guard, locks memory fix, domain invariants |
 
-**Total unit tests at completion: 121 (order-service) + 6 (catalog-service) — 0 failures.**
+**Total unit tests at completion: 135+ (order-service) + 13+ (catalog-service) — 0 failures.**
