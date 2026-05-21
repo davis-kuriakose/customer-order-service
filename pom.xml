@@ -28,7 +28,7 @@
         <lombok.version>1.18.34</lombok.version>
         <mapstruct.version>1.6.3</mapstruct.version>
         <resilience4j.version>2.2.0</resilience4j.version>
-        <testcontainers.version>1.20.3</testcontainers.version>
+        <testcontainers.version>1.21.0</testcontainers.version>
         <wiremock.version>3.9.2</wiremock.version>
         <springdoc.version>2.6.0</springdoc.version>
     </properties>
@@ -92,7 +92,8 @@
                     <configuration>
                         <!-- Byte Buddy (bundled with Mockito) officially supports up to Java 23.
                              Experimental mode allows it to instrument classes on Java 24+. -->
-                        <argLine>-Dnet.bytebuddy.experimental=true</argLine>
+                        <!-- Docker Engine 29+ requires API >= 1.40; Testcontainers' bundled docker-java defaults to 1.32 -->
+                        <argLine>-Dnet.bytebuddy.experimental=true -Dapi.version=1.41</argLine>
                     </configuration>
                 </plugin>
             </plugins>
